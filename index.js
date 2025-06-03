@@ -158,6 +158,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
   ];
 
   for (const { topic, path } of topics) {
+    // 💡 Inject topic directly, unquoted, into the mutation
     const mutation = `
       mutation {
         webhookSubscriptionCreate(
@@ -167,12 +168,12 @@ async function registerPrivacyWebhooks(shop, accessToken) {
             format: JSON
           }
         ) {
+          webhookSubscription {
+            id
+          }
           userErrors {
             field
             message
-          }
-          webhookSubscription {
-            id
           }
         }
       }
@@ -182,27 +183,24 @@ async function registerPrivacyWebhooks(shop, accessToken) {
       const response = await axios.post(url, { query: mutation }, {
         headers: {
           'X-Shopify-Access-Token': accessToken,
-          'Content-Type': 'application/json',
-        },
+          'Content-Type': 'application/json'
+        }
       });
 
-      const result = response.data?.data?.webhookSubscriptionCreate;
+      const errors = response.data?.data?.webhookSubscriptionCreate?.userErrors;
 
-      if (!result) {
-        console.error(`❌ Webhook registration failed: ${topic}`, response.data.errors || 'No data returned');
-        continue;
-      }
-
-      if (result.userErrors?.length) {
-        console.error(`❌ Failed to register ${topic}:`, result.userErrors);
+      if (errors && errors.length > 0) {
+        console.error(`❌ Failed to register ${topic}:`, errors);
       } else {
         console.log(`✅ Registered webhook (GraphQL): ${topic}`);
       }
+
     } catch (err) {
-      console.error(`❌ GraphQL Error for ${topic}:`, err.response?.data || err.message);
+      console.error(`❌ Webhook registration failed: ${topic}`, err.response?.data || err.message);
     }
   }
 }
+
 
 // Helper to get access token
 function getToken(shop) {
