@@ -42,6 +42,8 @@ app.get('/', (req, res) => {
       <body style="text-align: center; margin-top: 50px;">
         <h1>Welcome to My Shopify App</h1>
         <form action="/connect" method="GET">
+          <input type="text" name="shop" placeholder="your-store.myshopify.com" required style="padding: 8px; width: 300px;" />
+          <br/><br/>
           <button style="padding: 10px 20px; font-size: 16px;">Connect Shopify</button>
         </form>
       </body>
@@ -51,7 +53,10 @@ app.get('/', (req, res) => {
 
 // Trigger Shopify OAuth
 app.get('/connect', (req, res) => {
-  const installUrl = `https://${STORE}/admin/oauth/authorize` +
+  const { shop } = req.query;
+  if (!shop) return res.status(400).send('❌ Missing "shop" query parameter');
+
+  const installUrl = `https://${shop}/admin/oauth/authorize` +
     `?client_id=${API_KEY}` +
     `&scope=${encodeURIComponent(SCOPES)}` +
     `&redirect_uri=${encodeURIComponent(`${HOST}/auth/callback`)}` +
@@ -59,6 +64,7 @@ app.get('/connect', (req, res) => {
 
   res.redirect(installUrl);
 });
+
 
 
 // OAuth Callback
@@ -149,30 +155,54 @@ app.post('/webhooks/shop/redact', (req, res) => {
 
 // Register Webhooks
 async function registerPrivacyWebhooks(shop, accessToken) {
-  const baseUrl = `https://${shop}/admin/api/${API_VERSION}/webhooks.json`;
+  const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
   const topics = [
-    { topic: 'customers/data_request', path: '/webhooks/customers/data_request' },
-    { topic: 'customers/redact', path: '/webhooks/customers/redact' },
-    { topic: 'shop/redact', path: '/webhooks/shop/redact' },
+    { topic: 'CUSTOMERS_DATA_REQUEST', path: '/webhooks/customers/data_request' },
+    { topic: 'CUSTOMERS_REDACT', path: '/webhooks/customers/redact' },
+    { topic: 'SHOP_REDACT', path: '/webhooks/shop/redact' },
   ];
 
   for (const { topic, path } of topics) {
+    const mutation = `
+      mutation {
+        webhookSubscriptionCreate(
+          topic: ${topic}
+          webhookSubscription: {
+            callbackUrl: "${HOST}${path}",
+            format: JSON
+          }
+        ) {
+          userErrors {
+            field
+            message
+          }
+          webhookSubscription {
+            id
+          }
+        }
+      }
+    `;
+
     try {
-      await axios.post(baseUrl, {
-        webhook: {
-          topic,
-          address: `${HOST}${path}`,
-          format: 'json',
+      const { data } = await axios.post(url, { query: mutation }, {
+        headers: {
+          'X-Shopify-Access-Token': accessToken,
+          'Content-Type': 'application/json',
         },
-      }, {
-        headers: { 'X-Shopify-Access-Token': accessToken },
       });
-      console.log(`✅ Registered webhook: ${topic}`);
+
+      const errors = data.data.webhookSubscriptionCreate.userErrors;
+      if (errors.length > 0) {
+        console.error(`❌ Failed to register ${topic}:`, errors);
+      } else {
+        console.log(`✅ Registered webhook (GraphQL): ${topic}`);
+      }
     } catch (err) {
-      console.error(`❌ Failed to register ${topic}:`, err.response?.data || err.message);
+      console.error(`❌ Webhook registration failed: ${topic}`, err.response?.data || err.message);
     }
   }
 }
+
 
 // Helper to get access token
 function getToken(shop) {
