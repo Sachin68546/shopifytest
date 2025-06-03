@@ -186,16 +186,48 @@ app.get('/orders', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
-    const url = `https://${shop}/admin/api/${API_VERSION}/orders.json?limit=10`;
-    const { data } = await axios.get(url, {
-      headers: { 'X-Shopify-Access-Token': token },
+    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+
+    const query = `
+      {
+        orders(first: 10) {
+          edges {
+            node {
+              id
+              name
+              createdAt
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              customer {
+                firstName
+                lastName
+                email
+              }
+            }
+          }
+        }
+      }
+    `;
+
+    const { data } = await axios.post(url, { query }, {
+      headers: {
+        'X-Shopify-Access-Token': token,
+        'Content-Type': 'application/json'
+      }
     });
-    res.json(data.orders);
+
+    const orders = data.data.orders.edges.map(edge => edge.node);
+    res.json(orders);
   } catch (err) {
-    console.error('❌ Orders error:', err.response?.data || err.message);
-    res.status(500).send('Error fetching orders');
+    console.error('❌ GraphQL Orders error:', err.response?.data || err.message);
+    res.status(500).send('Error fetching orders (GraphQL)');
   }
 });
+
 
 // Products Endpoint
 app.get('/products', async (req, res) => {
@@ -244,16 +276,39 @@ app.get('/customers', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
-    const url = `https://${shop}/admin/api/${API_VERSION}/customers.json?limit=10`;
-    const { data } = await axios.get(url, {
-      headers: { 'X-Shopify-Access-Token': token },
+    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+
+    const query = `
+      {
+        customers(first: 10) {
+          edges {
+            node {
+              id
+              displayName
+              email
+              createdAt
+              state
+            }
+          }
+        }
+      }
+    `;
+
+    const { data } = await axios.post(url, { query }, {
+      headers: {
+        'X-Shopify-Access-Token': token,
+        'Content-Type': 'application/json'
+      }
     });
-    res.json(data.customers);
+
+    const customers = data.data.customers.edges.map(edge => edge.node);
+    res.json(customers);
   } catch (err) {
-    console.error('❌ Customers error:', err.response?.data || err.message);
-    res.status(500).send('Error fetching customers');
+    console.error('❌ GraphQL Customers error:', err.response?.data || err.message);
+    res.status(500).send('Error fetching customers (GraphQL)');
   }
 });
+
 
 // Start Server
 app.listen(PORT, () => {
