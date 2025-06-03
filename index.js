@@ -81,7 +81,11 @@ app.get('/auth/callback', async (req, res) => {
 
     await registerPrivacyWebhooks(shop, token);
 
-    res.redirect(`${APP_UI_PATH}?shop=${shop}`);
+    // res.redirect(`${APP_UI_PATH}?shop=${shop}`);
+
+    const host = req.query.host;
+res.redirect(`https://admin.shopify.com/store/${shop.replace('.myshopify.com', '')}/apps/${API_KEY}?shop=${shop}&host=${host}`);
+
   } catch (err) {
     console.error('❌ OAuth error:', err.response?.data || err.message);
     res.status(500).send('Authentication failed');
