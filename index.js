@@ -156,6 +156,7 @@ app.post('/webhooks/shop/redact', (req, res) => {
 // Register Webhooks
 async function registerPrivacyWebhooks(shop, accessToken) {
   const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+
   const topics = [
     { topic: 'CUSTOMERS_DATA_REQUEST', path: '/webhooks/customers/data_request' },
     { topic: 'CUSTOMERS_REDACT', path: '/webhooks/customers/redact' },
@@ -163,8 +164,9 @@ async function registerPrivacyWebhooks(shop, accessToken) {
   ];
 
   for (const { topic, path } of topics) {
+    // Notice how we inject the topic directly in the mutation
     const mutation = `
-      mutation webhookSubscriptionCreate {
+      mutation {
         webhookSubscriptionCreate(
           topic: ${topic}
           webhookSubscription: {
@@ -204,7 +206,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
         console.log(`✅ Registered webhook (GraphQL): ${topic}`);
       }
     } catch (err) {
-      console.error(`❌ Webhook registration failed: ${topic}`, err.response?.data || err.message);
+      console.error(`❌ GraphQL Error for ${topic}:`, err.response?.data || err.message);
     }
   }
 }
