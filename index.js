@@ -34,8 +34,23 @@ app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Install Route
+// Landing Page
 app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Connect Shopify</title></head>
+      <body style="text-align: center; margin-top: 50px;">
+        <h1>Welcome to My Shopify App</h1>
+        <form action="/connect" method="GET">
+          <button style="padding: 10px 20px; font-size: 16px;">Connect Shopify</button>
+        </form>
+      </body>
+    </html>
+  `);
+});
+
+// Trigger Shopify OAuth
+app.get('/connect', (req, res) => {
   const installUrl = `https://${STORE}/admin/oauth/authorize` +
     `?client_id=${API_KEY}` +
     `&scope=${encodeURIComponent(SCOPES)}` +
@@ -44,6 +59,7 @@ app.get('/', (req, res) => {
 
   res.redirect(installUrl);
 });
+
 
 // OAuth Callback
 app.get('/auth/callback', async (req, res) => {
