@@ -188,7 +188,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
       const response = await axios.post(url, {
         query: mutation,
         variables: {
-          topic: topic,
+          topic: topic, // Must be passed as a raw enum string, NOT quoted in the mutation
         },
       }, {
         headers: {
