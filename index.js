@@ -164,11 +164,10 @@ async function registerPrivacyWebhooks(shop, accessToken) {
   ];
 
   for (const { topic, path } of topics) {
-    // Notice how we inject the topic directly in the mutation
     const mutation = `
-      mutation {
+      mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!) {
         webhookSubscriptionCreate(
-          topic: ${topic}
+          topic: $topic
           webhookSubscription: {
             callbackUrl: "${HOST}${path}",
             format: JSON
@@ -186,7 +185,12 @@ async function registerPrivacyWebhooks(shop, accessToken) {
     `;
 
     try {
-      const response = await axios.post(url, { query: mutation }, {
+      const response = await axios.post(url, {
+        query: mutation,
+        variables: {
+          topic: topic,
+        },
+      }, {
         headers: {
           'X-Shopify-Access-Token': accessToken,
           'Content-Type': 'application/json',
@@ -210,6 +214,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
     }
   }
 }
+
 
 
 // Helper to get access token
