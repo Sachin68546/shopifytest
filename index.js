@@ -11,7 +11,6 @@ dotenv.config();
 const {
   SHOPIFY_API_KEY: API_KEY,
   SHOPIFY_API_SECRET: API_SECRET,
-  SHOPIFY_STORE: STORE,
   SHOPIFY_SCOPES: SCOPES,
   SHOPIFY_API_VERSION: API_VERSION = '2025-04',
   HOST,
@@ -19,7 +18,7 @@ const {
   APP_UI_PATH = '/app',
 } = process.env;
 
-if (!API_KEY || !API_SECRET || !STORE || !SCOPES || !HOST) {
+if (!API_KEY || !API_SECRET || !SCOPES || !HOST) {
   console.error('❌ Missing environment variables');
   process.exit(1);
 }
@@ -27,7 +26,6 @@ if (!API_KEY || !API_SECRET || !STORE || !SCOPES || !HOST) {
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const tokens = new Map();
 
 app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
@@ -65,8 +63,6 @@ app.get('/connect', (req, res) => {
   res.redirect(installUrl);
 });
 
-
-
 // OAuth Callback
 app.get('/auth/callback', async (req, res) => {
   const { code, shop } = req.query;
@@ -83,7 +79,6 @@ app.get('/auth/callback', async (req, res) => {
     tokens.set(shop, token);
     console.log(`✅ Token stored for ${shop}`);
 
-    // Register mandatory privacy webhooks
     await registerPrivacyWebhooks(shop, token);
 
     res.redirect(`${APP_UI_PATH}?shop=${shop}`);
@@ -107,7 +102,7 @@ app.get('/app', (req, res) => {
   `);
 });
 
-// Webhook Verification Helper
+// Webhook Verification
 function verifyWebhook(req, res) {
   const hmac = req.get('X-Shopify-Hmac-Sha256');
   const digest = crypto
@@ -123,7 +118,7 @@ function verifyWebhook(req, res) {
   return true;
 }
 
-// Orders Create Webhook
+// Webhook Endpoints
 app.post('/webhooks/orders/create', (req, res) => {
   if (!verifyWebhook(req, res)) return;
   const payload = JSON.parse(req.body.toString('utf8'));
@@ -131,7 +126,6 @@ app.post('/webhooks/orders/create', (req, res) => {
   res.status(200).send('OK');
 });
 
-// Privacy Webhooks
 app.post('/webhooks/customers/data_request', (req, res) => {
   if (!verifyWebhook(req, res)) return;
   const payload = JSON.parse(req.body.toString('utf8'));
@@ -153,7 +147,7 @@ app.post('/webhooks/shop/redact', (req, res) => {
   res.status(200).send('OK');
 });
 
-// Register Webhooks
+// Register Webhooks (with inline enum)
 async function registerPrivacyWebhooks(shop, accessToken) {
   const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
 
@@ -165,9 +159,9 @@ async function registerPrivacyWebhooks(shop, accessToken) {
 
   for (const { topic, path } of topics) {
     const mutation = `
-      mutation webhookSubscriptionCreate($topic: WebhookSubscriptionTopic!) {
+      mutation {
         webhookSubscriptionCreate(
-          topic: $topic
+          topic: ${topic}
           webhookSubscription: {
             callbackUrl: "${HOST}${path}",
             format: JSON
@@ -185,12 +179,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
     `;
 
     try {
-      const response = await axios.post(url, {
-        query: mutation,
-        variables: {
-          topic: topic, // Must be passed as a raw enum string, NOT quoted in the mutation
-        },
-      }, {
+      const response = await axios.post(url, { query: mutation }, {
         headers: {
           'X-Shopify-Access-Token': accessToken,
           'Content-Type': 'application/json',
@@ -215,8 +204,6 @@ async function registerPrivacyWebhooks(shop, accessToken) {
   }
 }
 
-
-
 // Helper to get access token
 function getToken(shop) {
   const token = tokens.get(shop);
@@ -224,7 +211,7 @@ function getToken(shop) {
   return token;
 }
 
-// Orders Endpoint
+// Orders
 app.get('/orders', async (req, res) => {
   try {
     const { shop } = req.query;
@@ -267,12 +254,11 @@ app.get('/orders', async (req, res) => {
     res.json(orders);
   } catch (err) {
     console.error('❌ GraphQL Orders error:', err.response?.data || err.message);
-    res.status(500).send('Error fetching orders (GraphQL)');
+    res.status(500).send('Error fetching orders');
   }
 });
 
-
-// Products Endpoint
+// Products
 app.get('/products', async (req, res) => {
   try {
     const { shop } = req.query;
@@ -309,12 +295,11 @@ app.get('/products', async (req, res) => {
     res.json(products);
   } catch (err) {
     console.error('❌ GraphQL Products error:', err.response?.data || err.message);
-    res.status(500).send('Error fetching products (GraphQL)');
+    res.status(500).send('Error fetching products');
   }
 });
 
-
-// Customers Endpoint
+// Customers
 app.get('/customers', async (req, res) => {
   try {
     const { shop } = req.query;
@@ -348,10 +333,9 @@ app.get('/customers', async (req, res) => {
     res.json(customers);
   } catch (err) {
     console.error('❌ GraphQL Customers error:', err.response?.data || err.message);
-    res.status(500).send('Error fetching customers (GraphQL)');
+    res.status(500).send('Error fetching customers');
   }
 });
-
 
 // Start Server
 app.listen(PORT, () => {
