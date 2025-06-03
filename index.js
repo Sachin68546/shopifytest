@@ -186,16 +186,42 @@ app.get('/products', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
-    const url = `https://${shop}/admin/api/${API_VERSION}/products.json?limit=10`;
-    const { data } = await axios.get(url, {
-      headers: { 'X-Shopify-Access-Token': token },
+    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+
+    const query = `
+      {
+        products(first: 10) {
+          edges {
+            node {
+              id
+              title
+              status
+              createdAt
+              updatedAt
+              totalInventory
+              vendor
+              handle
+            }
+          }
+        }
+      }
+    `;
+
+    const { data } = await axios.post(url, { query }, {
+      headers: {
+        'X-Shopify-Access-Token': token,
+        'Content-Type': 'application/json'
+      }
     });
-    res.json(data.products);
+
+    const products = data.data.products.edges.map(edge => edge.node);
+    res.json(products);
   } catch (err) {
-    console.error('❌ Products error:', err.response?.data || err.message);
-    res.status(500).send('Error fetching products');
+    console.error('❌ GraphQL Products error:', err.response?.data || err.message);
+    res.status(500).send('Error fetching products (GraphQL)');
   }
 });
+
 
 // Customers Endpoint
 app.get('/customers', async (req, res) => {
