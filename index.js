@@ -36,6 +36,32 @@ const tokens = new Map();
 const stateMap = new Map();
 
 /**
+ * Middleware to skip any HTTP→HTTPS or “www”→“no‐www” redirect logic
+ * when the path starts with /webhooks. This ensures webhook POSTs
+ * are never turned into a 307 before our HMAC check.
+ */
+app.use((req, res, next) => {
+  if (req.path.startsWith('/webhooks')) {
+    // Bypass any external redirect logic (do not call next() into redirect middleware)
+    return next();
+  }
+  // Otherwise, if you had any general “force HTTPS” or “force no‐www” logic,
+  // it should go here. For example:
+  //
+  // if (!req.secure) {
+  //   return res.redirect(307, `https://${req.headers.host}${req.url}`);
+  // }
+  //
+  // But since you likely do that outside of Express, we just call next().
+  return next();
+});
+
+// Parse raw body for webhooks, and JSON for everything else
+app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+/**
  * Verify the HMAC for incoming webhook payloads.
  * If invalid, send a 401 and return false. Otherwise return true.
  */
@@ -94,11 +120,6 @@ function verifyOAuthCallback(req) {
     return false;
   }
 }
-
-// Parse raw body for webhooks, and JSON for everything else
-app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
 /**
  * Root route. Handles both:
@@ -183,12 +204,13 @@ app.get('/connect', (req, res) => {
 /**
  * OAuth callback. Shopify redirects here after merchant approves.
  * We verify `state`, re-verify HMAC on the callback, exchange the code
- * for an access token, register webhooks, then redirect back into the Shopify Admin.
+ * for an access token, register webhooks, then redirect back into the Shopify Admin
+ * or fallback to the App UI if `host` is missing/invalid.
  */
 app.get('/auth/callback', async (req, res) => {
   try {
     const { code, shop, state, host, hmac } = req.query;
-    if (!code || !shop || !state || !host || !hmac) {
+    if (!code || !shop || !state || !hmac) {
       return res.status(400).send('❌ Missing required OAuth query parameters');
     }
 
@@ -217,13 +239,16 @@ app.get('/auth/callback', async (req, res) => {
     // 4) Register required GDPR webhooks now that we have the token
     await registerPrivacyWebhooks(shop, token);
 
-    // 5) Redirect back into Shopify Admin (embedded app launch)
-    //    `host` is a Base64-encoded string provided by Shopify
-    const redirectUrl = `https://${host}/apps/${API_KEY}?shop=${encodeURIComponent(
-      shop
-    )}&host=${encodeURIComponent(host)}`;
+    // 5) If `host` is present and looks valid, redirect into embedded-app Admin
+    if (typeof host === 'string' && host.includes('admin.shopify.com')) {
+      const redirectUrl = `https://${host}/apps/${API_KEY}?shop=${encodeURIComponent(
+        shop
+      )}&host=${encodeURIComponent(host)}`;
+      return res.redirect(redirectUrl);
+    }
 
-    return res.redirect(redirectUrl);
+    // 6) Fallback: redirect to our own App UI if `host` is missing/invalid
+    return res.redirect(`${HOST}${APP_UI_PATH}?shop=${encodeURIComponent(shop)}`);
   } catch (err) {
     console.error('❌ OAuth callback error:', err.response?.data || err.message);
     return res.status(500).send('Authentication failed');
@@ -250,8 +275,8 @@ app.get('/app', (req, res) => {
 
 /**
  * Webhook endpoints.
- * We place these routes before any potential redirect/HTTPS-forcing middleware
- * so that Shopify’s POST never sees a 307 redirect.
+ * These are mounted before any redirect logic (see the `app.use(...)` above).
+ * Each one immediately checks HMAC and returns 401 if invalid.
  */
 
 // Order creation webhook
