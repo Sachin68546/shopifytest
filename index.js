@@ -1,3 +1,5 @@
+// index.js
+
 import express from 'express';
 import axios from 'axios';
 import dotenv from 'dotenv';
@@ -29,36 +31,34 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// In‐memory storage for access tokens (by shop) and OAuth states (by random state)
+// In-memory maps to store access tokens (by shop) and OAuth states (by state string)
 const tokens = new Map();
 const stateMap = new Map();
 
 /**
- * STEP 1: WEBHOOK MIDDLEWARE
+ * STEP 1: WEBHOOK RAW‐BODY + HMAC VALIDATION MIDDLEWARE
  *
- * We mount a raw‐body parser on "/webhooks". This catches ANY request whose path begins
- * with "/webhooks" (for example "/webhooks/shop/redact", "/webhooks/orders/create", etc.).
- *
- * Then we immediately verify:
- *  • METHOD must be POST, otherwise 401
- *  • HMAC header must match the raw body, otherwise 401
- *
- * If both pass, we call next() so the specific POST handler (below) can run.
+ *  • We mount bodyParser.raw(...) on "/webhooks". Any request whose path begins with "/webhooks"
+ *    will have its entire request body available as a Buffer in req.body.
+ *  • Immediately after, we check:
+ *       – Method must be POST; otherwise respond 401
+ *       – Compare X-Shopify-Hmac-Sha256 to HMAC(SHOPIFY_API_SECRET, rawBody). If mismatch, respond 401
+ *    If either fails, we send 401 and stop. If valid, we call next() so the specific POST handler runs.
  */
 app.use(
   '/webhooks',
   bodyParser.raw({
-    type: '*/*', // interpret entire payload as raw Buffer
+    type: '*/*',
   })
 );
 
 app.use('/webhooks', (req, res, next) => {
-  // 1) Only POST is valid for Shopify webhooks
+  // Only POST is valid for Shopify webhooks:
   if (req.method !== 'POST') {
     return res.status(401).send('Unauthorized');
   }
 
-  // 2) Verify the HMAC from Shopify
+  // Compute our own HMAC on the raw request body
   const hmacHeader = req.get('X-Shopify-Hmac-Sha256') || '';
   const generatedDigest = crypto
     .createHmac('sha256', API_SECRET)
@@ -76,29 +76,27 @@ app.use('/webhooks', (req, res, next) => {
       return res.status(401).send('Unauthorized');
     }
   } catch {
-    // timingSafeEqual can throw if lengths differ
+    // If lengths differ, timingSafeEqual throws
     return res.status(401).send('Unauthorized');
   }
 
-  // HMAC is valid → proceed to the matching POST handler
+  // HMAC is valid → proceed to the matching POST handler below
   next();
 });
 
 /**
- * STEP 2: PARSE JSON FOR THE REST OF THE APP
+ * STEP 2: JSON PARSER & STATIC FILES FOR THE REMAINDER OF THE APP
+ *
+ * Non-webhook routes will use JSON body parsing as usual.
  */
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * STEP 3: OAUTH CALLBACK HMAC VERIFIER
+ * STEP 3: OAUTH CALLBACK HMAC VERIFICATION
  *
- * Shopify sends an HMAC in the query when redirecting back to /auth/callback.
- * We need to verify that HMAC using the same procedure:
- *  • Sort all query params except hmac & signature
- *  • Recreate the string "key1=value1&key2=value2…"
- *  • Compute our own HMAC via SHA256(API_SECRET, thatString)
- *  • Compare to the provided hmac (hex)
+ * When Shopify redirects back to /auth/callback, it includes an HMAC in the query.
+ * We must recreate that HMAC from all query params (except “hmac” itself) and compare.
  */
 function verifyOAuthCallback(req) {
   const providedHmac = req.query.hmac;
@@ -128,25 +126,24 @@ function verifyOAuthCallback(req) {
 }
 
 /**
- * STEP 4: ROOT ROUTE – INSTALL INITIATION
+ * STEP 4: ROOT ROUTE “/” – HANDLES SHOPIFY INSTALL VS. MANUAL FORM
  *
- * When Shopify’s review bot “clicks Install,” it will call:
- *   GET /?shop=<my-shop>&timestamp=…&hmac=…
- * 
+ * Shopify’s automated check will call:
+ *    GET /?shop=<my-shop>&timestamp=…&hmac=…
  * We must:
- *  1) Reconstruct HMAC over { shop, timestamp } (excluding hmac itself).
- *  2) If valid, redirect (302) to /connect?shop=<my-shop>.
- *  3) If invalid, throw 400.
+ *  1) Recreate HMAC over { shop, timestamp } (omit hmac)
+ *  2) If valid, 302 → /connect?shop=<my-shop>
+ *  3) If invalid, 400 error
  *
- * If a developer (or merchant) simply browses to “/” without those query params,
- * we show a simple HTML form letting them type in a shop, then submit to /connect.
+ * If no shop/hmac/timestamp present, we show a simple HTML form
+ * for manual “kop” → “connect” flow.
  */
 app.get('/', (req, res) => {
   const { shop, hmac, timestamp } = req.query;
 
-  // Shopify “install” call
+  // Shopify “Install” flow
   if (shop && hmac && timestamp) {
-    // Recreate the message string from query minus “hmac”
+    // Recreate query minus hmac
     const map = { ...req.query };
     delete map.hmac;
     const message = querystring.stringify(map);
@@ -163,7 +160,7 @@ app.get('/', (req, res) => {
           Buffer.from(hmac, 'hex')
         )
       ) {
-        // Valid HMAC → immediately redirect into /connect
+        // Valid HMAC → redirect into /connect
         return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
       } else {
         return res.status(400).send('❌ Invalid HMAC on install request');
@@ -173,7 +170,7 @@ app.get('/', (req, res) => {
     }
   }
 
-  // No shop/hmac/timestamp → show a manual “Enter your-shop.myshopify.com” form
+  // Manual landing form
   res.send(`
     <html>
       <head><title>Connect Shopify</title></head>
@@ -196,14 +193,12 @@ app.get('/', (req, res) => {
 });
 
 /**
- * STEP 5: CONNECT ROUTE – REDIRECT TO SHOPIFY’S OAUTH SCREEN
+ * STEP 5: /connect → REDIRECT TO SHOPIFY’S OAUTH SCREEN
  *
  * Expects: GET /connect?shop=<store>.myshopify.com
  * We:
- *  1) Generate a random state (UUID), store it in stateMap.set(state, shop)
- *  2) Build the authorize URL:
- *     https://<shop>/admin/oauth/authorize?client_id=...&scope=...&redirect_uri=...&state=...&grant_options[]=offline
- *  3) Redirect (302) to that URL
+ *  1) Generate a random ‘state’ and store `stateMap.set(state, shop)`
+ *  2) Redirect to Shopify’s /admin/oauth/authorize with client_id, scope, redirect_uri, state, grant_options[]=offline
  */
 app.get('/connect', (req, res) => {
   const { shop } = req.query;
@@ -226,20 +221,20 @@ app.get('/connect', (req, res) => {
 });
 
 /**
- * STEP 6: OAUTH CALLBACK
+ * STEP 6: OAUTH CALLBACK “/auth/callback”
  *
- * Shopify will redirect here after the merchant approves:
- *   GET /auth/callback?code=...&shop=...&state=...&hmac=...&host=...
+ * Shopify redirects here after merchant approval:
+ *    GET /auth/callback?code=…&shop=…&state=…&hmac=…&host=…
  *
- * We must:
- *  1) Verify that “state” matches what we stored for this shop
- *  2) Verify the HMAC on the callback query itself
- *  3) Exchange the “code” for an access token via POST to /admin/oauth/access_token
- *  4) Save token in memory (tokens.set(shop, token))
- *  5) Register GDPR webhooks (customers/data_request, customers/redact, shop/redact)
- *  6) Redirect merchant back into Shopify Admin’s embedded-app URL if “host” is valid
- *     OR, if “host” is missing/invalid (e.g. during automated check), send them to
- *     our own UI at `${HOST}${APP_UI_PATH}?shop=...`
+ * We:
+ *  1) Verify that stateMap.get(state) === shop
+ *  2) Verify the callback’s HMAC
+ *  3) Exchange code for access_token via POST to https://<shop>/admin/oauth/access_token
+ *  4) Save token in `tokens.set(shop, token)`
+ *  5) Register GDPR webhooks for customers/data_request, customers/redact, shop/redact
+ *  6) If `host` looks like “admin.shopify.com”, do a 302 → embedded‐app URL:
+ *     `https://${host}/apps/${API_KEY}?shop=<…>&host=<…>`
+ *  7) Otherwise (e.g. during automated check), 302 → `${HOST}${APP_UI_PATH}?shop=<…>`
  */
 app.get('/auth/callback', async (req, res) => {
   try {
@@ -260,7 +255,7 @@ app.get('/auth/callback', async (req, res) => {
       return res.status(400).send('❌ Invalid HMAC on OAuth callback');
     }
 
-    // Exchange `code` for access token
+    // Exchange code for access token
     const tokenResponse = await axios.post(`https://${shop}/admin/oauth/access_token`, {
       client_id: API_KEY,
       client_secret: API_SECRET,
@@ -273,7 +268,7 @@ app.get('/auth/callback', async (req, res) => {
     // Register GDPR webhooks now that we have the token
     await registerPrivacyWebhooks(shop, token);
 
-    // If host is valid, redirect into embedded-app Admin
+    // If host is valid, embed inside Shopify Admin
     if (typeof host === 'string' && host.includes('admin.shopify.com')) {
       const redirectUrl = `https://${host}/apps/${API_KEY}?shop=${encodeURIComponent(
         shop
@@ -281,7 +276,7 @@ app.get('/auth/callback', async (req, res) => {
       return res.redirect(redirectUrl);
     }
 
-    // Otherwise, send them to our own hosted UI
+    // Otherwise, send merchant to our own UI
     return res.redirect(`${HOST}${APP_UI_PATH}?shop=${encodeURIComponent(shop)}`);
   } catch (err) {
     console.error('❌ OAuth callback error:', err.response?.data || err.message);
@@ -290,9 +285,10 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 /**
- * STEP 7: APP UI
+ * STEP 7: APP UI “/app”
  *
- * If a merchant arrives here (e.g. not embedded), they see a minimal dashboard.
+ * If merchant visits directly, they see a minimal dashboard.
+ * (In a real embedded app you’d likely serve a React front-end instead.)
  */
 app.get('/app', (req, res) => {
   const { shop } = req.query;
@@ -310,8 +306,8 @@ app.get('/app', (req, res) => {
 /**
  * STEP 8: WEBHOOK HANDLERS
  *
- * Because we’ve already run the HMAC check (and method check) in the
- * `app.use('/webhooks', …)` middleware, these handlers only execute when HMAC is valid.
+ * By the time any request reaches these POST handlers, we have already
+ * validated HMAC (or returned 401). So at this point we simply process.
  */
 
 // Order creation webhook
@@ -321,7 +317,7 @@ app.post('/webhooks/orders/create', (req, res) => {
   return res.status(200).send('OK');
 });
 
-// GDPR Customer data request
+// GDPR Customer data_request
 app.post('/webhooks/customers/data_request', (req, res) => {
   const payload = JSON.parse(req.body.toString('utf8'));
   console.log('🔐 customers/data_request:', payload);
@@ -344,9 +340,6 @@ app.post('/webhooks/shop/redact', (req, res) => {
 
 /**
  * STEP 9: REGISTER GDPR WEBHOOKS VIA GRAPHQL
- *
- * We subscribe to three topics: CUSTOMERS_DATA_REQUEST, CUSTOMERS_REDACT, SHOP_REDACT
- * by calling /admin/api/<API_VERSION>/graphql.json with a mutation.
  */
 async function registerPrivacyWebhooks(shop, accessToken) {
   const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
@@ -403,7 +396,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
 }
 
 /**
- * STEP 10: RETRIEVE STORED ACCESS TOKEN FOR A SHOP
+ * STEP 10: HELPER TO RETRIEVE STORED ACCESS TOKEN FOR A SHOP
  */
 function getToken(shop) {
   const token = tokens.get(shop);
@@ -552,7 +545,7 @@ app.get('/customers', async (req, res) => {
   }
 });
 
-// Finally, start the server
+// START THE SERVER
 app.listen(PORT, () => {
   console.log(`🚀 Shopify app running on ${HOST} (port ${PORT})`);
 });
