@@ -29,60 +29,59 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// In-memory map to store access tokens per shop
+// In-memory maps to store access tokens and OAuth states
 const tokens = new Map();
-
-// In-memory map to store OAuth state per shop during installation
 const stateMap = new Map();
 
 /**
- * 1) Middleware to bypass any HTTP→HTTPS or “www→non-www” redirect logic
- *    for paths beginning with /webhooks. This ensures that when Shopify’s
- *    review bot POSTs to /webhooks/..., it never gets a 307 before our HMAC check.
+ * 1) For any request under /webhooks, we must parse the raw body first.
+ *    Then we immediately verify HMAC (and method). If invalid (or not POST),
+ *    return 401. Otherwise, call next() so the specific POST handler runs.
  */
-app.use((req, res, next) => {
-  if (req.path.startsWith('/webhooks')) {
-    return next();
+app.use(
+  '/webhooks',
+  bodyParser.raw({
+    type: '*/*',
+  })
+);
+
+app.all('/webhooks/*', (req, res, next) => {
+  // Only POST is allowed for Shopify webhooks. Any other method → 401.
+  if (req.method !== 'POST') {
+    return res.status(401).send('Unauthorized');
   }
-  // Otherwise, if you have global redirect logic (e.g., force HTTPS), it would go here.
-  // For example:
-  // if (!req.secure) {
-  //   return res.redirect(307, `https://${req.headers.host}${req.url}`);
-  // }
-  return next();
-});
 
-// 2) Parse raw body for webhooks, and JSON for everything else
-app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
-app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
-
-/**
- * Verify the HMAC for incoming webhook payloads.
- * If invalid, send a 401 and return false. Otherwise, return true.
- */
-function verifyWebhook(req, res) {
+  // Verify HMAC for POST requests
   const hmacHeader = req.get('X-Shopify-Hmac-Sha256') || '';
   const generatedDigest = crypto
     .createHmac('sha256', API_SECRET)
     .update(req.body, 'utf8')
     .digest('base64');
 
-  if (
-    !crypto.timingSafeEqual(
-      Buffer.from(generatedDigest, 'base64'),
-      Buffer.from(hmacHeader, 'base64')
-    )
-  ) {
-    console.warn('❌ Invalid HMAC signature (webhook)');
-    res.status(401).send('Unauthorized');
-    return false;
+  try {
+    if (
+      !crypto.timingSafeEqual(
+        Buffer.from(generatedDigest, 'base64'),
+        Buffer.from(hmacHeader, 'base64')
+      )
+    ) {
+      console.warn('❌ Invalid HMAC signature (webhook)');
+      return res.status(401).send('Unauthorized');
+    }
+  } catch {
+    return res.status(401).send('Unauthorized');
   }
-  return true;
-}
+
+  // If we reach here, the HMAC is valid. Let the POST handler run.
+  next();
+});
+
+// After the catch-all, parse JSON for non-webhook routes
+app.use(bodyParser.json());
+app.use(express.static(path.join(__dirname, 'public')));
 
 /**
- * Verify the HMAC for OAuth callback query parameters.
+ * Verify HMAC for OAuth callback query parameters.
  * Shopify sends `hmac` in query; we recreate the message string
  * by sorting all params except `hmac` or `signature`.
  * Returns true if valid, false otherwise.
@@ -133,15 +132,19 @@ app.get('/', (req, res) => {
       .update(message)
       .digest('hex');
 
-    if (
-      crypto.timingSafeEqual(
-        Buffer.from(generatedDigest, 'hex'),
-        Buffer.from(hmac, 'hex')
-      )
-    ) {
-      // Valid HMAC: redirect into /connect to start OAuth
-      return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
-    } else {
+    try {
+      if (
+        crypto.timingSafeEqual(
+          Buffer.from(generatedDigest, 'hex'),
+          Buffer.from(hmac, 'hex')
+        )
+      ) {
+        // Valid HMAC: redirect into /connect to start OAuth
+        return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
+      } else {
+        return res.status(400).send('❌ Invalid HMAC on install request');
+      }
+    } catch {
       return res.status(400).send('❌ Invalid HMAC on install request');
     }
   }
@@ -264,13 +267,13 @@ app.get('/app', (req, res) => {
 });
 
 /**
- * Webhook endpoints. Because of the bypass middleware above,
- * these never see a 307—they get handled directly.
+ * Webhook endpoints. Since we've already run HMAC verification in the 
+ * catch-all above, these handlers only run when the HMAC is valid.
  */
 
 // Order creation webhook
 app.post('/webhooks/orders/create', (req, res) => {
-  if (!verifyWebhook(req, res)) return; // sends 401 if invalid
+  // At this point, HMAC is already validated
   const payload = JSON.parse(req.body.toString('utf8'));
   console.log('📦 Order Created:', payload);
   res.status(200).send('OK');
@@ -278,7 +281,6 @@ app.post('/webhooks/orders/create', (req, res) => {
 
 // GDPR Customer data request
 app.post('/webhooks/customers/data_request', (req, res) => {
-  if (!verifyWebhook(req, res)) return;
   const payload = JSON.parse(req.body.toString('utf8'));
   console.log('🔐 customers/data_request:', payload);
   res.status(200).send('OK');
@@ -286,7 +288,6 @@ app.post('/webhooks/customers/data_request', (req, res) => {
 
 // GDPR Customer redact
 app.post('/webhooks/customers/redact', (req, res) => {
-  if (!verifyWebhook(req, res)) return;
   const payload = JSON.parse(req.body.toString('utf8'));
   console.log('🧹 customers/redact:', payload);
   res.status(200).send('OK');
@@ -294,14 +295,13 @@ app.post('/webhooks/customers/redact', (req, res) => {
 
 // GDPR Shop redact
 app.post('/webhooks/shop/redact', (req, res) => {
-  if (!verifyWebhook(req, res)) return;
   const payload = JSON.parse(req.body.toString('utf8'));
   console.log('🏪 shop/redact:', payload);
   res.status(200).send('OK');
 });
 
 /**
- * Register GDPR webhooks via GraphQL.
+ * Helper to register required GDPR webhooks via GraphQL.
  */
 async function registerPrivacyWebhooks(shop, accessToken) {
   const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
