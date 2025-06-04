@@ -36,34 +36,30 @@ const tokens = new Map();
 const stateMap = new Map();
 
 /**
- * Middleware to skip any HTTP→HTTPS or “www”→“no‐www” redirect logic
- * when the path starts with /webhooks. This ensures webhook POSTs
- * are never turned into a 307 before our HMAC check.
+ * 1) Middleware to bypass any HTTP→HTTPS or “www→non-www” redirect logic
+ *    for paths beginning with /webhooks. This ensures that when Shopify’s
+ *    review bot POSTs to /webhooks/..., it never gets a 307 before our HMAC check.
  */
 app.use((req, res, next) => {
   if (req.path.startsWith('/webhooks')) {
-    // Bypass any external redirect logic (do not call next() into redirect middleware)
     return next();
   }
-  // Otherwise, if you had any general “force HTTPS” or “force no‐www” logic,
-  // it should go here. For example:
-  //
+  // Otherwise, if you have global redirect logic (e.g., force HTTPS), it would go here.
+  // For example:
   // if (!req.secure) {
   //   return res.redirect(307, `https://${req.headers.host}${req.url}`);
   // }
-  //
-  // But since you likely do that outside of Express, we just call next().
   return next();
 });
 
-// Parse raw body for webhooks, and JSON for everything else
+// 2) Parse raw body for webhooks, and JSON for everything else
 app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
  * Verify the HMAC for incoming webhook payloads.
- * If invalid, send a 401 and return false. Otherwise return true.
+ * If invalid, send a 401 and return false. Otherwise, return true.
  */
 function verifyWebhook(req, res) {
   const hmacHeader = req.get('X-Shopify-Hmac-Sha256') || '';
@@ -89,7 +85,7 @@ function verifyWebhook(req, res) {
  * Verify the HMAC for OAuth callback query parameters.
  * Shopify sends `hmac` in query; we recreate the message string
  * by sorting all params except `hmac` or `signature`.
- * This returns true if valid, false otherwise.
+ * Returns true if valid, false otherwise.
  */
 function verifyOAuthCallback(req) {
   const providedHmac = req.query.hmac;
@@ -97,7 +93,6 @@ function verifyOAuthCallback(req) {
     return false;
   }
 
-  // Exclude 'hmac' and 'signature' from the message
   const { hmac, signature, ...allParams } = req.query;
   const sortedMessage = Object.keys(allParams)
     .sort()
@@ -109,29 +104,26 @@ function verifyOAuthCallback(req) {
     .update(sortedMessage)
     .digest('hex');
 
-  // Compare the raw bytes of the two hex-encoded digests
   try {
     return crypto.timingSafeEqual(
       Buffer.from(generatedHmac, 'hex'),
       Buffer.from(providedHmac, 'hex')
     );
   } catch {
-    // timingSafeEqual throws if buffer lengths differ
     return false;
   }
 }
 
 /**
- * Root route. Handles both:
+ * Root route. Handles:
  *  - Initial Shopify install redirect (when shop, hmac, timestamp are present)
  *  - Manual visits (renders a simple HTML form)
  */
 app.get('/', (req, res) => {
   const { shop, hmac, timestamp } = req.query;
 
-  // If Shopify is calling to install the app, it will include shop, hmac, timestamp
+  // If Shopify is initiating install, it includes shop, hmac, timestamp
   if (shop && hmac && timestamp) {
-    // Recreate the query string without 'hmac'
     const map = { ...req.query };
     delete map.hmac;
     const message = querystring.stringify(map);
@@ -141,21 +133,20 @@ app.get('/', (req, res) => {
       .update(message)
       .digest('hex');
 
-    // Compare Shopify's hmac to our generated digest (hex)
     if (
       crypto.timingSafeEqual(
         Buffer.from(generatedDigest, 'hex'),
         Buffer.from(hmac, 'hex')
       )
     ) {
-      // Valid HMAC: immediately redirect into /connect to start OAuth
+      // Valid HMAC: redirect into /connect to start OAuth
       return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
     } else {
       return res.status(400).send('❌ Invalid HMAC on install request');
     }
   }
 
-  // Otherwise, render the landing page with manual shop input
+  // Otherwise, render landing page
   res.send(`
     <html>
       <head><title>Connect Shopify</title></head>
@@ -203,9 +194,9 @@ app.get('/connect', (req, res) => {
 
 /**
  * OAuth callback. Shopify redirects here after merchant approves.
- * We verify `state`, re-verify HMAC on the callback, exchange the code
- * for an access token, register webhooks, then redirect back into the Shopify Admin
- * or fallback to the App UI if `host` is missing/invalid.
+ * We verify `state`, re-verify HMAC, exchange code for access token,
+ * register webhooks, then redirect back into Shopify Admin or fallback
+ * to our App UI if `host` is missing/invalid.
  */
 app.get('/auth/callback', async (req, res) => {
   try {
@@ -214,19 +205,19 @@ app.get('/auth/callback', async (req, res) => {
       return res.status(400).send('❌ Missing required OAuth query parameters');
     }
 
-    // 1) Verify `state` matches what we generated
+    // Verify state
     const storedShop = stateMap.get(state);
     if (storedShop !== shop) {
       return res.status(400).send('❌ State mismatch');
     }
     stateMap.delete(state);
 
-    // 2) Verify HMAC on the callback query (Shopify sends `hmac` here)
+    // Verify HMAC on callback query
     if (!verifyOAuthCallback(req)) {
       return res.status(400).send('❌ Invalid HMAC on OAuth callback');
     }
 
-    // 3) Exchange `code` for an access token
+    // Exchange code for access token
     const tokenResponse = await axios.post(`https://${shop}/admin/oauth/access_token`, {
       client_id: API_KEY,
       client_secret: API_SECRET,
@@ -236,10 +227,10 @@ app.get('/auth/callback', async (req, res) => {
     tokens.set(shop, token);
     console.log(`✅ Token stored for ${shop}`);
 
-    // 4) Register required GDPR webhooks now that we have the token
+    // Register GDPR webhooks
     await registerPrivacyWebhooks(shop, token);
 
-    // 5) If `host` is present and looks valid, redirect into embedded-app Admin
+    // If host is valid, redirect into embedded-app Admin
     if (typeof host === 'string' && host.includes('admin.shopify.com')) {
       const redirectUrl = `https://${host}/apps/${API_KEY}?shop=${encodeURIComponent(
         shop
@@ -247,7 +238,7 @@ app.get('/auth/callback', async (req, res) => {
       return res.redirect(redirectUrl);
     }
 
-    // 6) Fallback: redirect to our own App UI if `host` is missing/invalid
+    // Otherwise, fallback to our App UI
     return res.redirect(`${HOST}${APP_UI_PATH}?shop=${encodeURIComponent(shop)}`);
   } catch (err) {
     console.error('❌ OAuth callback error:', err.response?.data || err.message);
@@ -256,9 +247,8 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 /**
- * App UI – if a merchant visits directly (not embedded),
- * they see a simple dashboard. In a real embedded app, you'd
- * likely serve a React/JS frontend here.
+ * App UI – if a merchant visits directly (not in embedded Admin),
+ * they see a simple dashboard.
  */
 app.get('/app', (req, res) => {
   const { shop } = req.query;
@@ -274,14 +264,13 @@ app.get('/app', (req, res) => {
 });
 
 /**
- * Webhook endpoints.
- * These are mounted before any redirect logic (see the `app.use(...)` above).
- * Each one immediately checks HMAC and returns 401 if invalid.
+ * Webhook endpoints. Because of the bypass middleware above,
+ * these never see a 307—they get handled directly.
  */
 
 // Order creation webhook
 app.post('/webhooks/orders/create', (req, res) => {
-  if (!verifyWebhook(req, res)) return; // sends 401 if HMAC invalid
+  if (!verifyWebhook(req, res)) return; // sends 401 if invalid
   const payload = JSON.parse(req.body.toString('utf8'));
   console.log('📦 Order Created:', payload);
   res.status(200).send('OK');
@@ -312,16 +301,15 @@ app.post('/webhooks/shop/redact', (req, res) => {
 });
 
 /**
- * Helper to register required GDPR webhooks using GraphQL API.
- * We inject each `topic` directly into the GraphQL mutation.
+ * Register GDPR webhooks via GraphQL.
  */
 async function registerPrivacyWebhooks(shop, accessToken) {
   const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
 
   const topics = [
     { topic: 'CUSTOMERS_DATA_REQUEST', path: '/webhooks/customers/data_request' },
-    { topic: 'CUSTOMERS_REDACT', path: '/webhooks/customers/redact' },
-    { topic: 'SHOP_REDACT', path: '/webhooks/shop/redact' },
+    { topic: 'CUSTOMERS_REDACT',      path: '/webhooks/customers/redact' },
+    { topic: 'SHOP_REDACT',           path: '/webhooks/shop/redact' },
   ];
 
   for (const { topic, path } of topics) {
@@ -370,7 +358,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
 }
 
 /**
- * Helper to retrieve stored access token for a given shop.
+ * Helper to get stored access token for a shop.
  */
 function getToken(shop) {
   const token = tokens.get(shop);
