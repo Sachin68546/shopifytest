@@ -318,10 +318,10 @@
       const leastProduct = sortedProds[sortedProds.length-1]?.[0] || 'N/A';
 
       // Set overview
-      document.getElementById('totalSales').textContent = '$' + totalSales.toFixed(2);
+      document.getElementById('totalSales').textContent = '₹' + totalSales.toFixed(2);
       document.getElementById('totalOrders').textContent = totalOrders;
       document.getElementById('totalCustomers').textContent = totalCustomers;
-      document.getElementById('avgOrderValue').textContent = '$' + avgOrderValue.toFixed(2);
+      document.getElementById('avgOrderValue').textContent = '₹' + avgOrderValue.toFixed(2);
       document.getElementById('newCustomers').textContent = newCustomersCount;
       document.getElementById('returningCustomers').textContent = returningCustomersCount;
       document.getElementById('bestProduct').textContent = bestProduct;
