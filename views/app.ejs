@@ -19,10 +19,11 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 
   <style>
-    body { min-height:100vh; overflow-x:hidden; }
-    /* Sidebar */
+    body { min-height:100vh; overflow-x:hidden; margin:0; }
+    /* Sidebar: 20% width */
     #sidebar {
-      width: 240px;
+      width: 20%;
+      max-width: 300px;
       background: #343a40;
       color: #adb5bd;
       position: fixed;
@@ -30,21 +31,19 @@
       bottom: 0;
       padding-top: 56px;
       z-index: 100;
+      overflow-y: auto;
     }
     #sidebar .nav-link {
       color: #adb5bd;
     }
-    #sidebar .nav-link:hover {
-      color: #fff;
-      background: #495057;
-    }
+    #sidebar .nav-link:hover,
     #sidebar .nav-link.active {
       color: #fff;
       background: #495057;
     }
-    /* Content */
+    /* Content: 80% width */
     #content {
-      margin-left: 240px;
+      margin-left: 20%;
       padding-top: 56px;
       padding: 20px;
     }
@@ -73,7 +72,7 @@
     }
     .chart-container {
       position: relative;
-      height: 250px;
+      height: 300px;
     }
     /* Section spacing */
     section {
@@ -84,7 +83,7 @@
     }
     /* Tables scroll */
     .table-responsive {
-      max-height: 350px;
+      max-height: 400px;
       overflow-y: auto;
     }
   </style>
@@ -126,7 +125,7 @@
     <!-- Overview Metrics -->
     <section id="overview">
       <h2>Overview Metrics</h2>
-      <div class="row g-3">
+      <div class="row g-4">
         <% const metrics = [
              ['total-sales','$','Total Sales','bi-currency-dollar text-success'],
              ['total-orders','', 'Total Orders','bi-bag text-primary'],
@@ -134,7 +133,7 @@
              ['avg-order-value','$','Avg Order Value','bi-calculator text-warning']
            ];
            metrics.forEach(([id,sym,label,icon]) => { %>
-          <div class="col-md-3 col-sm-6">
+          <div class="col-lg-3 col-md-4 col-sm-6">
             <div class="card overview-card p-3 h-100">
               <div class="d-flex align-items-center">
                 <i class="bi <%= icon %> overview-icon"></i>
@@ -147,7 +146,7 @@
           </div>
         <% }); %>
       </div>
-      <div class="row g-3 mt-2">
+      <div class="row g-4 mt-3">
         <% const extra = [
              ['new-customers','', 'New Customers','bi-person-plus text-success'],
              ['returning-customers','', 'Returning Customers','bi-person-check text-primary'],
@@ -155,7 +154,7 @@
              ['least-product','', 'Lowest Selling','bi-star-half text-danger']
            ];
            extra.forEach(([id,sym,label,icon]) => { %>
-          <div class="col-md-3 col-sm-6">
+          <div class="col-lg-3 col-md-4 col-sm-6">
             <div class="card overview-card p-3 h-100">
               <div class="d-flex align-items-center">
                 <i class="bi <%= icon %> overview-icon"></i>
@@ -171,7 +170,7 @@
     </section>
 
     <!-- Charts -->
-    <section id="charts" class="bg-light p-3 rounded">
+    <section id="charts" class="bg-light p-4 rounded">
       <h2>Charts & Trends</h2>
       <div class="row g-4">
         <div class="col-lg-6">
@@ -208,10 +207,10 @@
          ['customers','Customers',['Name','Email']]
        ];
        tables.forEach(([id,title,heads]) => { %>
-      <section id="<%= id %>" class="mt-4">
+      <section id="<%= id %>" class="mt-5">
         <h2><%= title %></h2>
         <div class="table-responsive">
-          <table class="table table-striped">
+          <table class="table table-striped align-middle">
             <thead class="table-dark">
               <tr><% heads.forEach(h=>{ %><th><%= h %></th><% }); %></tr>
             </thead>
@@ -230,7 +229,7 @@
   <script>
     const shop = '<%= encodeURIComponent(shop) %>';
     const groupByDate = (items, key) =>
-      items.reduce((a, i) => { const d = new Date(i[key]).toISOString().split('T')[0]; a[d] = (a[d]||0) + +(i.totalPriceSet?.shopMoney.amount||0); return a; }, {});
+      items.reduce((a, i) => { const d = new Date(i[key]).toISOString().split('T')[0]; a[d] = (a[d]||0) + +(+i.totalPriceSet?.shopMoney.amount||0); return a; }, {});
 
     Promise.all([
       fetch(`/orders?shop=${shop}`).then(r=>r.json()),
@@ -238,34 +237,60 @@
       fetch(`/customers?shop=${shop}`).then(r=>r.json())
     ]).then(([orders, prods, custs])=>{
       // Metrics
-      const sales=orders.reduce((s,o)=>s+ +o.totalPriceSet.shopMoney.amount,0);
-      const ords=orders.length, custCount=custs.length, avg=ords?sales/ords:0;
-      const emails=orders.reduce((m,o)=>{ m[o.customer.email]=(m[o.customer.email]||0)+1;return m; },{});
-      const newC=Object.values(emails).filter(x=>x===1).length;
-      const retC=Object.values(emails).filter(x=>x>1).length;
-      const counts=orders.reduce((m,o)=>{ m[o.name]=(m[o.name]||0)+1;return m; },{});
-      const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-      const best=sorted[0]?.[0]||'N/A', least=sorted.pop()?.[0]||'N/A';
-      document.getElementById('total-sales').textContent='$'+sales.toFixed(2);
-      document.getElementById('total-orders').textContent=ords;
-      document.getElementById('total-customers').textContent=custCount;
-      document.getElementById('avg-order-value').textContent='$'+avg.toFixed(2);
-      document.getElementById('new-customers').textContent=newC;
-      document.getElementById('returning-customers').textContent=retC;
-      document.getElementById('best-product').textContent=best;
-      document.getElementById('least-product').textContent=least;
-      // Fill tables
-      const fill=(id,data,keys)=>{ const tb=document.getElementById(id+'-table'); data.forEach(d=>{ const tr=document.createElement('tr'); tr.innerHTML=keys.map(k=>`<td>${d[k]}</td>`).join('');tb.appendChild(tr); }); };
-      fill('orders',orders.map(o=>({ 'Order #':o.name, 'Date':new Date(o.createdAt).toLocaleDateString(), 'Total':'$'+(+o.totalPriceSet.shopMoney.amount).toFixed(2) })),['Order #','Date','Total']);
-      fill('products',prods, ['title','totalInventory']);
-      fill('customers',custs,['displayName','email']);
+      const sales = orders.reduce((s,o) => s + +o.totalPriceSet.shopMoney.amount, 0);
+      const ords = orders.length;
+      const custCount = custs.length;
+      const avg = ords ? sales/ords : 0;
+      const emails = orders.reduce((m,o) => { const e = o.customer.email; m[e] = (m[e]||0) + 1; return m; }, {});
+      const newC = Object.values(emails).filter(v=>v===1).length;
+      const retC = Object.values(emails).filter(v=>v>1).length;
+      const counts = orders.reduce((m,o) => { const k = o.name; m[k] = (m[k]||0) + 1; return m; }, {});
+      const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+      const best = sorted[0]?.[0]||'N/A';
+      const least = sorted[sorted.length-1]?.[0]||'N/A';
+
+      document.getElementById('total-sales').textContent = '$' + sales.toFixed(2);
+      document.getElementById('total-orders').textContent = ords;
+      document.getElementById('total-customers').textContent = custCount;
+      document.getElementById('avg-order-value').textContent = '$' + avg.toFixed(2);
+      document.getElementById('new-customers').textContent = newC;
+      document.getElementById('returning-customers').textContent = retC;
+      document.getElementById('best-product').textContent = best;
+      document.getElementById('least-product').textContent = least;
+
+      // Populate tables
+      const fill = (id, data, keys) => {
+        const tb = document.getElementById(id + '-table');
+        data.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = keys.map(k => `<td>${item[k]}</td>`).join('');
+          tb.appendChild(tr);
+        });
+      };
+      fill('orders', orders.map(o => ({ 'Order #': o.name, 'Date': new Date(o.createdAt).toLocaleDateString(), 'Total': '$' + (+o.totalPriceSet.shopMoney.amount).toFixed(2) })), ['Order #','Date','Total']);
+      fill('products', prods.map(p=>({ title: p.title, totalInventory: p.totalInventory })), ['title','totalInventory']);
+      fill('customers', custs.map(c=>({ displayName: c.displayName, email: c.email })), ['displayName','email']);
+
       // Charts
-      const salesBy=groupByDate(orders,'createdAt'), days=Object.keys(salesBy).sort();
-      new Chart(document.getElementById('salesChart'), { type:'line', data:{ labels:days, datasets:[{ label:'Sales', data:days.map(d=>salesBy[d]), tension:0.4 }] } });
-      new Chart(document.getElementById('customerChart'), { type:'doughnut', data:{ labels:['New','Returning'], datasets:[{ data:[newC,retC] }] } });
-      const top5=sorted.slice(0,5);
-      new Chart(document.getElementById('productChart'), { type:'bar', data:{ labels:top5.map(x=>x[0]), datasets:[{ label:'Orders', data:top5.map(x=>x[1]) }] } });
-      new Chart(document.getElementById('ordersChart'), { type:'bar', data:{ labels:days, datasets:[{ label:'Orders', data:days.map(d=>orders.filter(o=>o.createdAt.startsWith(d)).length) }] } });
+      const salesBy = groupByDate(orders, 'createdAt');
+      const days = Object.keys(salesBy).sort();
+      new Chart(document.getElementById('salesChart'), {
+        type: 'line',
+        data: { labels: days, datasets: [{ label: 'Sales', data: days.map(d => salesBy[d]), tension: 0.4 }] }
+      });
+      new Chart(document.getElementById('customerChart'), {
+        type: 'doughnut',
+        data: { labels: ['New','Returning'], datasets: [{ data: [newC, retC] }] }
+      });
+      const top5 = sorted.slice(0,5);
+      new Chart(document.getElementById('productChart'), {
+        type: 'bar',
+        data: { labels: top5.map(x => x[0]), datasets: [{ label: 'Orders', data: top5.map(x => x[1]) }] }
+      });
+      new Chart(document.getElementById('ordersChart'), {
+        type: 'bar',
+        data: { labels: days, datasets: [{ label: 'Orders', data: days.map(d => orders.filter(o => o.createdAt.startsWith(d)).length) }] }
+      });
     });
   </script>
 </body>
