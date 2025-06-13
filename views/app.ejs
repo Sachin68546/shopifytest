@@ -301,9 +301,10 @@
       const totalOrders = orders.length;
       const totalCustomers = customers.length;
       const avgOrderValue = totalOrders ? totalSales / totalOrders : 0;
-      const emailCounts = orders.reduce((m,o) => {
-        const e = o.customer.email;
-        m[e] = (m[e]||0) + 1;
+      const emailCounts = orders.reduce((m, o) => {
+        // Guard against missing customer information
+        const e = o.customer && o.customer.email ? o.customer.email : 'Guest';
+        m[e] = (m[e] || 0) + 1;
         return m;
       }, {});
       const newCustomersCount = Object.values(emailCounts).filter(v=>v===1).length;
