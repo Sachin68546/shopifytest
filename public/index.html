@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Connect Your Shopify Store</title>
+  <title>Profit First Analytics</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- Bootstrap 5 -->
@@ -22,201 +22,157 @@
   />
 
   <style>
-    /* Custom green if you want a bespoke shade */
-    .bg-green {
-      background-color: #0a955b !important;
-    }
-
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: 'Inter', sans-serif;
-      background-color: #f0f2f5;
-    }
-    /* Navbar */
-    .navbar {
-      padding: 0.75rem 2rem;
-    }
-    .navbar-brand img {
-      height: 80px;
-    }
-    /* Hero – add top padding to clear the fixed navbar */
-    .hero {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 75vh;
-      padding-top: 4rem;      /* ≈ navbar height */
-      background: linear-gradient(135deg, #0a955b 0%, #26b35e 100%);
-      color: #fff;
-      text-align: center;
-      padding-left: 1rem;
-      padding-right: 1rem;
-    }
-    .hero h1 {
-      font-size: 3rem;
-      font-weight: 700;
-      margin-bottom: 0.5rem;
-    }
-    .hero p {
-      font-size: 1.25rem;
-      opacity: 0.9;
-      margin-bottom: 2rem;
-      max-width: 600px;
-    }
-    .connect-form {
-      width: 100%;
-      max-width: 480px;
-    }
-    .connect-form .form-control {
-      height: 56px;
-      font-size: 1rem;
-    }
-    .connect-form .btn {
-      height: 56px;
-      font-size: 1rem;
-    }
-    /* Features */
-    .features .bi {
-      font-size: 3rem;
-      color: #26b35e;
-      margin-bottom: 1rem;
-    }
-    /* How It Works */
-    .steps .bi {
-      font-size: 2.5rem;
-      color: #0a955b;
-      margin-bottom: 0.75rem;
-    }
-    /* Footer */
-    footer {
-      text-align: center;
-      padding: 1rem 0;
-      color: #6c757d;
-      font-size: 0.875rem;
-      background-color: #fff;
-    }
+    /* Custom green */
+    .bg-green { background-color: #0a955b !important; }
+    html, body { height: 100%; margin: 0; font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+    .navbar { padding: 0.75rem 2rem; }
+    .navbar-brand img { height: 80px; }
+    .hero { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 75vh; padding-top: 4rem; background: linear-gradient(135deg, #0a955b 0%, #26b35e 100%); color: #fff; text-align: center; padding: 0 1rem; }
+    .hero h1 { font-size: 3rem; font-weight: 700; margin-bottom: .5rem; }
+    .hero p { font-size: 1.25rem; opacity: .9; margin-bottom: 2rem; max-width: 600px; }
+    .connect-form { max-width: 480px; width: 100%; }
+    .connect-form .form-control, .connect-form .btn { height: 56px; font-size: 1rem; }
+    .features .bi { font-size: 3rem; color: #26b35e; margin-bottom: 1rem; }
+    .steps .bi { font-size: 2.5rem; color: #0a955b; margin-bottom: .75rem; }
+    footer { text-align: center; padding: 1rem 0; color: #6c757d; font-size: .875rem; background-color: #fff; }
+    /* Privacy Policy page */
+    #privacy-policy { display: none; padding: 4rem 1rem; max-width: 800px; margin: auto; background-color: #fff; }
+    #privacy-policy h1 { margin-bottom: 1.5rem; }
+    #privacy-policy p { margin-bottom: 1rem; }
   </style>
 </head>
 <body>
 
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-light bg-green shadow-sm fixed-top">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#how-it-works">
-        <img src="https://res.cloudinary.com/dqdvr35aj/image/upload/v1748330108/Logo1_zbbbz4.png" alt="Profit First Analytics Logo">
-      </a>
-      <button
-        class="navbar-toggler"
-        type="button"
-        data-bs-toggle="collapse"
-        data-bs-target="#navbarNav"
-      >
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-        <ul class="navbar-nav align-items-center">
-          <li class="nav-item">
-            <a class="nav-link active text-light" aria-current="page" href="#how-it-works">Home</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-light" href="#features">Features</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link text-light" href="#how-it-works">How It Works</a>
-          </li>
-          <li class="nav-item">
-            <a class="btn btn-light ms-3" href="#how-it-works">Connect Store</a>
-          </li>
-        </ul>
-      </div>
-    </div>
-  </nav>
-
-  <!-- Hero -->
-  <section class="hero">
-    <h1>Launch Your Shopify Analytics</h1>
-    <p>Connect your store to instantly access sales, orders, and profit insights—all in one dashboard.</p>
-    <div class="connect-form">
-      <form action="/connect" method="GET" class="d-flex">
-        <input
-          type="text"
-          name="shop"
-          class="form-control me-2"
-          placeholder="your-store.myshopify.com"
-          required
-        />
-        <button type="submit" class="btn btn-light">
-          Connect
+  <!-- === Main Dashboard Wrapper === -->
+  <div id="main-content">
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-green shadow-sm fixed-top">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#home" onclick="location.hash='';">
+          <img src="https://res.cloudinary.com/dqdvr35aj/image/upload/v1748330108/Logo1_zbbbz4.png" alt="Profit First Analytics Logo">
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
         </button>
-      </form>
-    </div>
-  </section>
-
-  <!-- Features -->
-  <section id="features" class="features py-5 bg-white">
-    <div class="container">
-      <h2 class="text-center mb-5">Why Profit First Analytics?</h2>
-      <div class="row gx-5 gy-4">
-        <div class="col-md-4 text-center">
-          <i class="bi bi-speedometer2"></i>
-          <h5>Real-Time Dashboard</h5>
-          <p>Monitor live sales and order metrics as they happen.</p>
-        </div>
-        <div class="col-md-4 text-center">
-          <i class="bi bi-graph-up-arrow"></i>
-          <h5>Comprehensive Reports</h5>
-          <p>Detailed breakdowns of revenue, profit, and product performance.</p>
-        </div>
-        <div class="col-md-4 text-center">
-          <i class="bi bi-people"></i>
-          <h5>Customer Insights</h5>
-          <p>Track your top customers and their purchase behavior.</p>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+          <ul class="navbar-nav align-items-center">
+            <li class="nav-item"><a class="nav-link active text-light" href="#home" onclick="location.hash='';">Home</a></li>
+            <li class="nav-item"><a class="nav-link text-light" href="#features">Features</a></li>
+            <li class="nav-item"><a class="nav-link text-light" href="#how-it-works">How It Works</a></li>
+            <li class="nav-item"><a class="btn btn-light ms-3" href="#how-it-works">Connect Store</a></li>
+          </ul>
         </div>
       </div>
-    </div>
-  </section>
+    </nav>
 
-  <!-- How It Works -->
-  <section id="how-it-works" class="steps py-5 bg-light">
-    <div class="container">
-      <h2 class="text-center mb-5">How It Works</h2>
-      <div class="row gx-5 gy-4">
-        <div class="col-md-4 text-center">
-          <i class="bi bi-link"></i>
-          <h6 class="mt-2">1. Connect Store</h6>
-          <p>Securely authorize access to your Shopify data.</p>
-        </div>
-        <div class="col-md-4 text-center">
-          <i class="bi bi-bar-chart"></i>
-          <h6 class="mt-2">2. Collect Data</h6>
-          <p>We fetch your orders, products, and customers in minutes.</p>
-        </div>
-        <div class="col-md-4 text-center">
-          <i class="bi bi-pie-chart"></i>
-          <h6 class="mt-2">3. View Insights</h6>
-          <p>See key metrics in our intuitive dashboard (coming up next!).</p>
+    <!-- Hero -->
+    <section id="home" class="hero">
+      <h1>Launch Your Shopify Analytics</h1>
+      <p>Connect your store to instantly access sales, orders, and profit insights—all in one dashboard.</p>
+      <div class="connect-form">
+        <form action="/connect" method="GET" class="d-flex">
+          <input type="text" name="shop" class="form-control me-2" placeholder="your-store.myshopify.com" required />
+          <button type="submit" class="btn btn-light">Connect</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Features -->
+    <section id="features" class="features py-5 bg-white">
+      <div class="container">
+        <h2 class="text-center mb-5">Why Profit First Analytics?</h2>
+        <div class="row gx-5 gy-4">
+          <div class="col-md-4 text-center">
+            <i class="bi bi-speedometer2"></i>
+            <h5>Real-Time Dashboard</h5>
+            <p>Monitor live sales and order metrics as they happen.</p>
+          </div>
+          <div class="col-md-4 text-center">
+            <i class="bi bi-graph-up-arrow"></i>
+            <h5>Comprehensive Reports</h5>
+            <p>Detailed breakdowns of revenue, profit, and product performance.</p>
+          </div>
+          <div class="col-md-4 text-center">
+            <i class="bi bi-people"></i>
+            <h5>Customer Insights</h5>
+            <p>Track your top customers and their purchase behavior.</p>
+          </div>
         </div>
       </div>
-    </div>
-  </section>
+    </section>
 
-  <!-- Call to Action -->
-  <section class="py-5 text-center">
-    <div class="container">
-      <h3>Ready to see your store’s performance?</h3>
-      <a href="#how-it-works" class="btn btn-success btn-lg mt-3">Connect Your Store</a>
-    </div>
-  </section>
+    <!-- How It Works -->
+    <section id="how-it-works" class="steps py-5 bg-light">
+      <div class="container">
+        <h2 class="text-center mb-5">How It Works</h2>
+        <div class="row gx-5 gy-4">
+          <div class="col-md-4 text-center">
+            <i class="bi bi-link"></i>
+            <h6 class="mt-2">1. Connect Store</h6>
+            <p>Securely authorize access to your Shopify data.</p>
+          </div>
+          <div class="col-md-4 text-center">
+            <i class="bi bi-bar-chart"></i>
+            <h6 class="mt-2">2. Collect Data</h6>
+            <p>We fetch your orders, products, and customers in minutes.</p>
+          </div>
+          <div class="col-md-4 text-center">
+            <i class="bi bi-pie-chart"></i>
+            <h6 class="mt-2">3. View Insights</h6>
+            <p>See key metrics in our intuitive dashboard (coming up next!).</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-  <!-- Footer -->
-  <footer>
-    © 2025 Profit First Analytics. All rights reserved.
-  </footer>
+    <!-- Call to Action -->
+    <section class="py-5 text-center">
+      <div class="container">
+        <h3>Ready to see your store’s performance?</h3>
+        <a href="#how-it-works" class="btn btn-success btn-lg mt-3">Connect Your Store</a>
+      </div>
+    </section>
 
-  <script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
-  ></script>
+    <!-- Footer -->
+    <footer>
+      © 2025 Profit First Analytics. All rights reserved.
+      <br />
+      <a href="#privacy" class="text-decoration-none" style="color: inherit;">Privacy Policy</a>
+    </footer>
+  </div>
+
+  <!-- === Privacy Policy Page === -->
+  <div id="privacy-policy">
+    <a href="#home" class="btn btn-sm btn-secondary mb-4" onclick="location.hash='';">← Back to Home</a>
+    <h1>Privacy Policy</h1>
+    <p>Last updated: June 13, 2025</p>
+    <p><strong>1. Introduction</strong><br>
+    At Profit First Analytics, we value your privacy. This policy explains how we collect, use, and protect your data when you use our service.</p>
+    <p><strong>2. Information We Collect</strong><br>
+    We collect personal information you provide (e.g., store URL, email) and usage data (e.g., API requests, analytics events).</p>
+    <p><strong>3. How We Use Your Information</strong><br>
+    We use data to provide analytics, improve our service, and communicate updates. We never sell your data to third parties.</p>
+    <p><strong>4. Third-Party Services</strong><br>
+    We may share anonymized, aggregated data with partners, but never personally identifiable information without consent.</p>
+    <p><strong>5. Your Rights</strong><br>
+    You can request access, correction, or deletion of your data by contacting us at privacy@profitfirstanalytics.com.</p>
+    <p><strong>6. Contact Us</strong><br>
+    For questions about this policy, email us at privacy@profitfirstanalytics.com.</p>
+    <footer class="mt-5">
+      © 2025 Profit First Analytics. All rights reserved.
+    </footer>
+  </div>
+
+  <!-- Bootstrap JS + Hash‐switch Script -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function toggleView() {
+      const hash = window.location.hash;
+      document.getElementById('main-content').style.display = (hash === '#privacy') ? 'none' : 'block';
+      document.getElementById('privacy-policy').style.display = (hash === '#privacy') ? 'block' : 'none';
+    }
+    window.addEventListener('hashchange', toggleView);
+    window.addEventListener('DOMContentLoaded', toggleView);
+  </script>
 </body>
 </html>
