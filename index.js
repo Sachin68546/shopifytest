@@ -308,7 +308,9 @@ app.get('/customers', async (req, res) => {
     res.status(500).send('Error fetching customers');
   }
 });
-
+app.use((req, res) => {
+  res.redirect('/');
+});
 app.listen(PORT, () => {
   console.log(`🚀 Shopify app running on ${HOST}:${PORT}`);
 });
