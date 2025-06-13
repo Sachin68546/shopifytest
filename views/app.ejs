@@ -1,141 +1,159 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <title>Shopify App Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <head>
+    <meta charset="UTF-8" />
+    <title>Shopify App Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Bootstrap 5 CSS -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
-    rel="stylesheet"
-  />
-  <!-- Bootstrap Icons -->
-  <link
-    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css"
-    rel="stylesheet"
-  />
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+    <!-- Bootstrap 5 CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <!-- Bootstrap Icons -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css"
+      rel="stylesheet"
+    />
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
 
-  <style>
-    body { min-height:100vh; overflow-x:hidden; margin:0;
-width:100vw;}
-    /* Sidebar: 20% width */
-    #sidebar {
-      width: 20%;
-      background: #343a40;
-      color: #adb5bd;
-      position: fixed;
-      top: 0;
-      bottom: 0;
-      padding-top: 56px;
-      z-index: 100;
-      overflow-y: auto;
-    }
-    #sidebar .nav-link {
-      color: #adb5bd;
-    }
-    #sidebar .nav-link:hover,
-    #sidebar .nav-link.active {
-      color: #fff;
-      background: #495057;
-    }
-    /* Content: 80% width */
-    #content {
-      margin-left: 20%;
-width:80%;
-      padding-top: 56px;
-      padding: 20px;
-    }
-    /* Overview cards */
-    .overview-card {
-      border: none;
-      border-radius: .75rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      transition: transform .2s;
-      height: 100%;
-    }
-    .overview-card:hover {
-      transform: translateY(-4px);
-    }
-    .overview-icon {
-      font-size: 2rem;
-      opacity: .3;
-    }
-    /* Chart container cards */
-    .chart-card {
-      border: none;
-      border-radius: .75rem;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-      padding: 1rem;
-      margin-bottom: 1rem;
-    }
-    .chart-container {
-      position: relative;
-      height: 300px;
-    }
-    /* Section spacing */
-    section {
-      margin-bottom: 2rem;
-    }
-    h2 {
-      margin-bottom: 1rem;
-    }
-    /* Tables scroll */
-    .table-responsive {
-      max-height: 400px;
-      overflow-y: auto;
-    }
-  </style>
-</head>
-<body>
+    <style>
+      /* Use flex layout for sidebar + content */
+      body {
+        display: flex;
+        margin: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        font-family: sans-serif;
+      }
+      /* Sidebar: fixed 20% width */
+      #sidebar {
+        width: 20%;
+        max-width: 300px;
+        background: #343a40;
+        color: #adb5bd;
+        padding-top: 56px;
+        overflow-y: auto;
+      }
+      #sidebar .nav-link {
+        color: #adb5bd;
+      }
+      #sidebar .nav-link:hover,
+      #sidebar .nav-link.active {
+        color: #fff;
+        background: #495057;
+      }
+      /* Content: flex grow */
+      #content {
+        flex: 1;
+        overflow-y: auto;
+        padding-top: 56px;
+        padding: 20px;
+        background: #f8f9fa;
+      }
+      /* Navbar fixes */
+      .navbar.fixed-top {
+        position: fixed;
+        top: 0;
+        width: 100%;
+        z-index: 200;
+      }
+      /* Overview cards */
+      .overview-card {
+        border: none;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        transition: transform 0.2s;
+      }
+      .overview-card:hover {
+        transform: translateY(-4px);
+      }
+      .overview-icon {
+        font-size: 2rem;
+        opacity: 0.3;
+      }
+      /* Chart cards */
+      .chart-card {
+        border: none;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: #fff;
+      }
+      .chart-container {
+        position: relative;
+        height: 300px;
+      }
+      section {
+        margin-bottom: 2rem;
+      }
+      h2 {
+        margin-bottom: 1rem;
+      }
+      .table-responsive {
+        max-height: 400px;
+        overflow-y: auto;
+        background: #fff;
+        padding: 1rem;
+        border-radius: 0.5rem;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Top Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">Profit First Analytics</a>
+        <div class="ms-auto text-white">Shop: <strong><%= shop %></strong></div>
+      </div>
+    </nav>
 
-  <!-- Top Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="#">Profit First Analytics</a>
-      <div class="ms-auto text-white">Shop: <strong><%= shop %></strong></div>
-    </div>
-  </nav>
+    <!-- Sidebar -->
+    <nav id="sidebar" class="d-flex flex-column pt-3">
+      <ul class="nav nav-pills flex-column mb-auto">
+        <li class="nav-item">
+          <a href="#overview" class="nav-link active"
+            ><i class="bi bi-speedometer2 me-2"></i>Overview</a
+          >
+        </li>
+        <li class="nav-item">
+          <a href="#charts" class="nav-link"
+            ><i class="bi bi-bar-chart-line me-2"></i>Charts</a
+          >
+        </li>
+        <li class="nav-item">
+          <a href="#orders" class="nav-link"
+            ><i class="bi bi-bag me-2"></i>Orders</a
+          >
+        </li>
+        <li class="nav-item">
+          <a href="#products" class="nav-link"
+            ><i class="bi bi-box-seam me-2"></i>Products</a
+          >
+        </li>
+        <li class="nav-item">
+          <a href="#customers" class="nav-link"
+            ><i class="bi bi-people me-2"></i>Customers</a
+          >
+        </li>
+      </ul>
+    </nav>
 
-  <!-- Sidebar -->
-  <nav id="sidebar" class="d-flex flex-column">
-    <ul class="nav nav-pills flex-column mb-auto">
-      <li class="nav-item">
-        <a href="#overview" class="nav-link active"><i class="bi bi-speedometer2 me-2"></i>Overview</a>
-      </li>
-      <li class="nav-item">
-        <a href="#charts" class="nav-link"><i class="bi bi-bar-chart-line me-2"></i>Charts</a>
-      </li>
-      <li class="nav-item">
-        <a href="#orders" class="nav-link"><i class="bi bi-bag me-2"></i>Orders</a>
-      </li>
-      <li class="nav-item">
-        <a href="#products" class="nav-link"><i class="bi bi-box-seam me-2"></i>Products</a>
-      </li>
-      <li class="nav-item">
-        <a href="#customers" class="nav-link"><i class="bi bi-people me-2"></i>Customers</a>
-      </li>
-    </ul>
-  </nav>
-
-  <!-- Main Content -->
-  <div id="content" class="container-fluid">
-
-    <!-- Overview Metrics -->
-    <section id="overview">
-      <h2>Overview Metrics</h2>
-      <div class="row g-4">
-        <% const metrics = [
-             ['total-sales','$','Total Sales','bi-currency-dollar text-success'],
-             ['total-orders','', 'Total Orders','bi-bag text-primary'],
-             ['total-customers','', 'Total Customers','bi-people text-info'],
-             ['avg-order-value','$','Avg Order Value','bi-calculator text-warning']
-           ];
-           metrics.forEach(([id,sym,label,icon]) => { %>
+    <!-- Main Content -->
+    <div id="content">
+      <!-- Overview -->
+      <section id="overview">
+        <h2>Overview Metrics</h2>
+        <div class="row gy-3">
+          <% [ ['totalSales','$','Total Sales','bi-currency-dollar
+          text-success'], ['totalOrders','','Total Orders','bi-bag
+          text-primary'], ['totalCustomers','','Total Customers','bi-people
+          text-info'], ['avgOrderValue','$','Avg Order Value','bi-calculator
+          text-warning'] ].forEach(([id,prefix,label,icon]) => { %>
           <div class="col-lg-3 col-md-4 col-sm-6">
-            <div class="card overview-card p-3 h-100">
+            <div class="card overview-card p-3 h-100 bg-white">
               <div class="d-flex align-items-center">
                 <i class="bi <%= icon %> overview-icon"></i>
                 <div class="ms-3">
@@ -145,18 +163,17 @@ width:80%;
               </div>
             </div>
           </div>
-        <% }); %>
-      </div>
-      <div class="row g-4 mt-3">
-        <% const extra = [
-             ['new-customers','', 'New Customers','bi-person-plus text-success'],
-             ['returning-customers','', 'Returning Customers','bi-person-check text-primary'],
-             ['best-product','', 'Best Selling','bi-star text-warning'],
-             ['least-product','', 'Lowest Selling','bi-star-half text-danger']
-           ];
-           extra.forEach(([id,sym,label,icon]) => { %>
+          <% }); %>
+        </div>
+        <div class="row gy-3 mt-3">
+          <% [ ['newCustomers','','New Customers','bi-person-plus
+          text-success'], ['returningCustomers','','Returning
+          Customers','bi-person-check text-primary'], ['bestProduct','','Best
+          Selling','bi-star text-warning'], ['leastProduct','','Lowest
+          Selling','bi-star-half text-danger']
+          ].forEach(([id,prefix,label,icon]) => { %>
           <div class="col-lg-3 col-md-4 col-sm-6">
-            <div class="card overview-card p-3 h-100">
+            <div class="card overview-card p-3 h-100 bg-white">
               <div class="d-flex align-items-center">
                 <i class="bi <%= icon %> overview-icon"></i>
                 <div class="ms-3">
@@ -166,133 +183,176 @@ width:80%;
               </div>
             </div>
           </div>
-        <% }); %>
-      </div>
-    </section>
+          <% }); %>
+        </div>
+      </section>
 
-    <!-- Charts -->
-    <section id="charts" class="bg-light p-4 rounded">
-      <h2>Charts & Trends</h2>
-      <div class="row g-4">
-        <div class="col-lg-6">
-          <div class="card chart-card">
-            <h6>Sales Over Time</h6>
-            <div class="chart-container"><canvas id="salesChart"></canvas></div>
+      <!-- Charts -->
+      <section id="charts">
+        <h2>Charts & Trends</h2>
+        <div class="row gy-4">
+          <% [ ['salesChart','Sales Over Time'], ['customerChart','Customer
+          Types'], ['productChart','Top Products'], ['ordersChart','Orders Per
+          Day'] ].forEach(([canvasId,title]) => { %>
+          <div class="col-lg-6">
+            <div class="card chart-card">
+              <h6><%= title %></h6>
+              <div class="chart-container">
+                <canvas id="<%= canvasId %>"></canvas>
+              </div>
+            </div>
           </div>
+          <% }); %>
         </div>
-        <div class="col-lg-6">
-          <div class="card chart-card">
-            <h6>Customer Types</h6>
-            <div class="chart-container"><canvas id="customerChart"></canvas></div>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="card chart-card">
-            <h6>Top Products</h6>
-            <div class="chart-container"><canvas id="productChart"></canvas></div>
-          </div>
-        </div>
-        <div class="col-lg-6">
-          <div class="card chart-card">
-            <h6>Orders Per Day</h6>
-            <div class="chart-container"><canvas id="ordersChart"></canvas></div>
-          </div>
-        </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Data Tables -->
-    <% const tables = [
-         ['orders','Recent Orders',['Order #','Date','Total']],
-         ['products','Products',['Title','Inventory']],
-         ['customers','Customers',['Name','Email']]
-       ];
-       tables.forEach(([id,title,heads]) => { %>
-      <section id="<%= id %>" class="mt-5">
+      <!-- Tables -->
+      <% [ ['orders','Recent Orders',['Order #','Date','Total']],
+      ['products','Products',['Title','Inventory']],
+      ['customers','Customers',['Name','Email']] ].forEach(([id,title,cols])=>{
+      %>
+      <section id="<%= id %>">
         <h2><%= title %></h2>
         <div class="table-responsive">
-          <table class="table table-striped align-middle">
+          <table class="table table-striped align-middle bg-white">
             <thead class="table-dark">
-              <tr><% heads.forEach(h=>{ %><th><%= h %></th><% }); %></tr>
+              <tr>
+                <% cols.forEach(c=>{ %>
+                <th><%= c %></th>
+                <% }); %>
+              </tr>
             </thead>
             <tbody id="<%= id %>-table"></tbody>
           </table>
         </div>
       </section>
-    <% }); %>
+      <% }); %>
+    </div>
 
-  </div>
-
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-
-  <!-- Client-side data & Chart logic -->
-  <script>
-    const shop = '<%= encodeURIComponent(shop) %>';
-    const groupByDate = (items, key) =>
-      items.reduce((a, i) => { const d = new Date(i[key]).toISOString().split('T')[0]; a[d] = (a[d]||0) + +(+i.totalPriceSet?.shopMoney.amount||0); return a; }, {});
-
-    Promise.all([
-      fetch(`/orders?shop=${shop}`).then(r=>r.json()),
-      fetch(`/products?shop=${shop}`).then(r=>r.json()),
-      fetch(`/customers?shop=${shop}`).then(r=>r.json())
-    ]).then(([orders, prods, custs])=>{
-      // Metrics
-      const sales = orders.reduce((s,o) => s + +o.totalPriceSet.shopMoney.amount, 0);
-      const ords = orders.length;
-      const custCount = custs.length;
-      const avg = ords ? sales/ords : 0;
-      const emails = orders.reduce((m,o) => { const e = o.customer.email; m[e] = (m[e]||0) + 1; return m; }, {});
-      const newC = Object.values(emails).filter(v=>v===1).length;
-      const retC = Object.values(emails).filter(v=>v>1).length;
-      const counts = orders.reduce((m,o) => { const k = o.name; m[k] = (m[k]||0) + 1; return m; }, {});
-      const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
-      const best = sorted[0]?.[0]||'N/A';
-      const least = sorted[sorted.length-1]?.[0]||'N/A';
-
-      document.getElementById('total-sales').textContent = '$' + sales.toFixed(2);
-      document.getElementById('total-orders').textContent = ords;
-      document.getElementById('total-customers').textContent = custCount;
-      document.getElementById('avg-order-value').textContent = '$' + avg.toFixed(2);
-      document.getElementById('new-customers').textContent = newC;
-      document.getElementById('returning-customers').textContent = retC;
-      document.getElementById('best-product').textContent = best;
-      document.getElementById('least-product').textContent = least;
-
-      // Populate tables
-      const fill = (id, data, keys) => {
-        const tb = document.getElementById(id + '-table');
-        data.forEach(item => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = keys.map(k => `<td>${item[k]}</td>`).join('');
-          tb.appendChild(tr);
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const shop = "<%= shop %>";
+      function groupByDate(items, key) {
+        return items.reduce((a, i) => {
+          const d = new Date(i[key]).toISOString().split("T")[0];
+          a[d] = (a[d] || 0) + parseFloat(i.totalPriceSet.shopMoney.amount);
+          return a;
+        }, {});
+      }
+      Promise.all([
+        fetch(`/orders?shop=${shop}`).then((r) => r.json()),
+        fetch(`/products?shop=${shop}`).then((r) => r.json()),
+        fetch(`/customers?shop=${shop}`).then((r) => r.json()),
+      ]).then(([orders, prods, custs]) => {
+        const sales = orders.reduce(
+          (s, o) => s + parseFloat(o.totalPriceSet.shopMoney.amount),
+          0
+        );
+        const ords = orders.length;
+        const custCount = custs.length;
+        const avg = ords ? sales / ords : 0;
+        const emailCount = orders.reduce((m, o) => {
+          const e = o.customer.email;
+          m[e] = (m[e] || 0) + 1;
+          return m;
+        }, {});
+        const newC = Object.values(emailCount).filter((v) => v === 1).length;
+        const retC = Object.values(emailCount).filter((v) => v > 1).length;
+        const prodCount = orders.reduce((m, o) => {
+          const k = o.name;
+          m[k] = (m[k] || 0) + 1;
+          return m;
+        }, {});
+        const sorted = Object.entries(prodCount).sort((a, b) => b[1] - a[1]);
+        const best = sorted[0]?.[0] || "N/A";
+        const least = sorted[sorted.length - 1]?.[0] || "N/A";
+        document.getElementById("totalSales").textContent =
+          "$" + sales.toFixed(2);
+        document.getElementById("totalOrders").textContent = ords;
+        document.getElementById("totalCustomers").textContent = custCount;
+        document.getElementById("avgOrderValue").textContent =
+          "$" + avg.toFixed(2);
+        document.getElementById("newCustomers").textContent = newC;
+        document.getElementById("returningCustomers").textContent = retC;
+        document.getElementById("bestProduct").textContent = best;
+        document.getElementById("leastProduct").textContent = least;
+        function fill(id, data, keys) {
+          const tb = document.getElementById(id + "-table");
+          data.forEach((item) => {
+            const tr = document.createElement("tr");
+            tr.innerHTML = keys.map((k) => `<td>${item[k]}</td>`).join("");
+            tb.appendChild(tr);
+          });
+        }
+        fill(
+          "orders",
+          orders.map((o) => ({
+            "Order #": o.name,
+            Date: new Date(o.createdAt).toLocaleDateString(),
+            Total:
+              "$" + parseFloat(o.totalPriceSet.shopMoney.amount).toFixed(2),
+          })),
+          ["Order #", "Date", "Total"]
+        );
+        fill(
+          "products",
+          prods.map((p) => ({
+            title: p.title,
+            totalInventory: p.totalInventory,
+          })),
+          ["title", "totalInventory"]
+        );
+        fill(
+          "customers",
+          custs.map((c) => ({ Name: c.displayName, Email: c.email })),
+          ["Name", "Email"]
+        );
+        const salesBy = groupByDate(orders, "createdAt"),
+          days = Object.keys(salesBy).sort();
+        new Chart(document.getElementById("salesChart"), {
+          type: "line",
+          data: {
+            labels: days,
+            datasets: [
+              {
+                label: "Sales",
+                data: days.map((d) => salesBy[d]),
+                tension: 0.3,
+              },
+            ],
+          },
         });
-      };
-      fill('orders', orders.map(o => ({ 'Order #': o.name, 'Date': new Date(o.createdAt).toLocaleDateString(), 'Total': '$' + (+o.totalPriceSet.shopMoney.amount).toFixed(2) })), ['Order #','Date','Total']);
-      fill('products', prods.map(p=>({ title: p.title, totalInventory: p.totalInventory })), ['title','totalInventory']);
-      fill('customers', custs.map(c=>({ displayName: c.displayName, email: c.email })), ['displayName','email']);
-
-      // Charts
-      const salesBy = groupByDate(orders, 'createdAt');
-      const days = Object.keys(salesBy).sort();
-      new Chart(document.getElementById('salesChart'), {
-        type: 'line',
-        data: { labels: days, datasets: [{ label: 'Sales', data: days.map(d => salesBy[d]), tension: 0.4 }] }
+        new Chart(document.getElementById("customerChart"), {
+          type: "doughnut",
+          data: {
+            labels: ["New", "Returning"],
+            datasets: [{ data: [newC, retC] }],
+          },
+        });
+        const top5 = sorted.slice(0, 5);
+        new Chart(document.getElementById("productChart"), {
+          type: "bar",
+          data: {
+            labels: top5.map((x) => x[0]),
+            datasets: [{ label: "Orders", data: top5.map((x) => x[1]) }],
+          },
+        });
+        new Chart(document.getElementById("ordersChart"), {
+          type: "bar",
+          data: {
+            labels: days,
+            datasets: [
+              {
+                label: "Orders",
+                data: days.map(
+                  (d) => orders.filter((o) => o.createdAt.startsWith(d)).length
+                ),
+              },
+            ],
+          },
+        });
       });
-      new Chart(document.getElementById('customerChart'), {
-        type: 'doughnut',
-        data: { labels: ['New','Returning'], datasets: [{ data: [newC, retC] }] }
-      });
-      const top5 = sorted.slice(0,5);
-      new Chart(document.getElementById('productChart'), {
-        type: 'bar',
-        data: { labels: top5.map(x => x[0]), datasets: [{ label: 'Orders', data: top5.map(x => x[1]) }] }
-      });
-      new Chart(document.getElementById('ordersChart'), {
-        type: 'bar',
-        data: { labels: days, datasets: [{ label: 'Orders', data: days.map(d => orders.filter(o => o.createdAt.startsWith(d)).length) }] }
-      });
-    });
-  </script>
-</body>
+    </script>
+  </body>
 </html>
