@@ -35,17 +35,13 @@ const stateMap = new Map();       // state -> shop
 
 // 1) Guard middleware: ensure OAuth completed before showing any UI or API routes
 app.use((req, res, next) => {
-  // Public endpoints
   const publicPaths = ['/', '/connect', '/auth/callback', '/webhooks'];
   if (publicPaths.some(p => req.path.startsWith(p))) {
     return next();
   }
-
-  // All other paths require a valid token
   const shop = req.query.shop;
   const token = shop && tokens.get(shop);
   if (!shop || !token) {
-    // Redirect to start OAuth flow
     return res.redirect(`/connect?shop=${encodeURIComponent(shop || '')}`);
   }
   next();
@@ -83,17 +79,21 @@ function verifyOAuthCallback(req) {
 
 // Root: install entrypoint
 app.get('/', (req, res) => {
-  const { shop, hmac, timestamp } = req.query;
+  const { shop, hmac, timestamp, host } = req.query;
   if (shop && hmac && timestamp) {
     // validate install HMAC
-    const params = { ...req.query };
-    delete params.hmac;
+    const params = { shop, timestamp };
     const message = querystring.stringify(params);
     const digest = crypto.createHmac('sha256', API_SECRET).update(message).digest('hex');
     if (!crypto.timingSafeEqual(Buffer.from(digest, 'hex'), Buffer.from(hmac, 'hex'))) {
       return res.status(400).send('❌ Invalid HMAC on install request');
     }
-    // kick off OAuth
+    // For embedded app installs, redirect into Shopify admin grant
+    if (host && typeof host === 'string') {
+      const decodedHost = Buffer.from(host, 'base64').toString('utf8');
+      return res.redirect(`https://${decodedHost}/app/grant`);
+    }
+    // Otherwise start OAuth flow
     return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
   }
   // fallback landing page
@@ -249,7 +249,6 @@ app.get('/orders', async (req, res) => {
     res.status(500).send('Error fetching orders');
   }
 });
-
 
 
 app.get('/products', async (req, res) => {
