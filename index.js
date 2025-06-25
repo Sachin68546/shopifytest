@@ -75,7 +75,7 @@ app.get('/', (req, res) => {
 
     return res.send(`
 
-     <!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -86,7 +86,7 @@ app.get('/', (req, res) => {
       margin: 0;
       padding: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to right, #4facfe, #00f2fe);
+      background: linear-gradient(to right, #a8e063, #56ab2f); /* Green gradient */
       height: 100vh;
       display: flex;
       align-items: center;
@@ -105,14 +105,14 @@ app.get('/', (req, res) => {
 
     h2 {
       margin-bottom: 1rem;
-      color: #333;
+      color: #2d572c;
     }
 
     label {
       font-size: 1rem;
       display: block;
       margin-bottom: 0.5rem;
-      color: #555;
+      color: #3d3d3d;
     }
 
     input[type="text"] {
@@ -131,7 +131,7 @@ app.get('/', (req, res) => {
 
     button {
       padding: 0.75rem 1.5rem;
-      background-color: #0077cc;
+      background-color: #4caf50; /* Green */
       color: #fff;
       border: none;
       border-radius: 8px;
@@ -141,7 +141,7 @@ app.get('/', (req, res) => {
     }
 
     button:hover {
-      background-color: #005fa3;
+      background-color: #388e3c;
     }
 
     @media (max-width: 480px) {
@@ -164,6 +164,7 @@ app.get('/', (req, res) => {
 
 </body>
 </html>
+
 
 
     `);
