@@ -197,7 +197,7 @@ app.get('/orders', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
-    const url = https://${shop}/admin/api/${API_VERSION}/graphql.json;
+    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
     const query = ...;
     const { data } = await axios.post(url, { query }, {
       headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
@@ -214,7 +214,7 @@ app.get('/products', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
-    const url = https://${shop}/admin/api/${API_VERSION}/graphql.json;
+    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
     const query = 
       {
         products(first: 50) {
@@ -245,7 +245,7 @@ app.get('/customers', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
-    const url = https://${shop}/admin/api/${API_VERSION}/graphql.json;
+    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
     const query = 
       {
         customers(first: 50) {
