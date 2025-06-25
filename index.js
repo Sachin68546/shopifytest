@@ -293,5 +293,5 @@ app.use((req, res) => res.redirect('/'));
 
 // Start server
 app.listen(PORT, () => {
-  console.log(🚀 Shopify app running on ${HOST}:${PORT});
+  console.log(`🚀 Shopify app running on ${HOST}:${PORT}`);
 }); 
