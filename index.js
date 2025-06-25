@@ -29,80 +29,91 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// In-memory token storage
+
+// EJS setup
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+
 const tokens = new Map();
 const stateMap = new Map();
 
-// Middleware
-app.use((req, res, next) => {
-  const publicPaths = ['/', '/connect', '/auth/callback', '/webhooks'];
-  if (publicPaths.some(p => req.path.startsWith(p))) return next();
-
-  const shop = req.query.shop;
-  const token = shop && tokens.get(shop);
-  if (!shop || !token) {
-    return res.redirect(`/connect?shop=${encodeURIComponent(shop || '')}`);
-  }
-  next();
-});
-
+// Raw body parser for webhooks
 app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
+
+// HMAC verification for webhooks
 app.use('/webhooks', (req, res, next) => {
+  if (req.method !== 'POST') return res.status(401).send('Unauthorized');
   const hmac = req.get('X-Shopify-Hmac-Sha256') || '';
   const digest = crypto.createHmac('sha256', API_SECRET).update(req.body, 'utf8').digest('base64');
   if (!crypto.timingSafeEqual(Buffer.from(digest, 'base64'), Buffer.from(hmac, 'base64'))) {
+    console.warn('❌ Invalid HMAC signature (webhook)');
     return res.status(401).send('Unauthorized');
   }
   next();
 });
 
 app.use(bodyParser.json());
-app.set('view engine', 'ejs');
-app.set('views', path.join(__dirname, 'views'));
 
-// HMAC verifier
 function verifyOAuthCallback(req) {
   const providedHmac = req.query.hmac;
   if (typeof providedHmac !== 'string') return false;
   const { hmac, signature, ...rest } = req.query;
-  const message = Object.keys(rest).sort().map(k => `${k}=${rest[k]}`).join('&');
-  const generated = crypto.createHmac('sha256', API_SECRET).update(message).digest('hex');
+  const sorted = Object.keys(rest).sort().map(k => `${k}=${rest[k]}`).join('&');
+  const generated = crypto.createHmac('sha256', API_SECRET).update(sorted).digest('hex');
   return crypto.timingSafeEqual(Buffer.from(generated, 'hex'), Buffer.from(providedHmac, 'hex'));
 }
 
-// Root route for installation
 app.get('/', (req, res) => {
+
   const { shop } = req.query;
+
+
 
   // If no shop, prompt for it
+
   if (!shop) {
+
     return res.send(`
+
       <html>
+
         <body>
+
           <form method="get" action="/connect">
+
             <label for="shop">Enter your shop domain:</label>
+
             <input type="text" id="shop" name="shop" placeholder="example.myshopify.com" />
+
             <button type="submit">Install App</button>
+
           </form>
+
         </body>
+
       </html>
+
     `);
+
   }
 
+
+
   // Always redirect to connect (OAuth) if shop is present
+
   return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
+
 });
 
-
-// Start OAuth flow
+// OAuth start
 app.get('/connect', (req, res) => {
   const { shop } = req.query;
-  if (!shop) return res.status(400).send('❌ Missing shop');
-
+  if (!shop || typeof shop !== 'string') return res.status(400).send('❌ Missing "shop" query parameter');
   const state = uuidv4();
   stateMap.set(state, shop);
 
-  const installUrl = `https://${shop}/admin/oauth/authorize` +
+  const installUrl =
+    `https://${shop}/admin/oauth/authorize` +
     `?client_id=${API_KEY}` +
     `&scope=${encodeURIComponent(SCOPES)}` +
     `&redirect_uri=${encodeURIComponent(`${HOST}/auth/callback`)}` +
@@ -116,26 +127,34 @@ app.get('/connect', (req, res) => {
 app.get('/auth/callback', async (req, res) => {
   try {
     const { code, shop, state, host, hmac } = req.query;
-    if (!code || !shop || !state || !hmac) return res.status(400).send('❌ Missing OAuth parameters');
-    if (stateMap.get(state) !== shop) return res.status(400).send('❌ State mismatch');
+    if (!code || !shop || !state || !hmac) {
+      return res.status(400).send('❌ Missing required OAuth query parameters');
+    }
+    if (stateMap.get(state) !== shop) {
+      return res.status(400).send('❌ State mismatch');
+    }
     stateMap.delete(state);
-
-    if (!verifyOAuthCallback(req)) return res.status(400).send('❌ Invalid HMAC');
+    if (!verifyOAuthCallback(req)) {
+      return res.status(400).send('❌ Invalid HMAC on OAuth callback');
+    }
 
     const tokenRes = await axios.post(`https://${shop}/admin/oauth/access_token`, {
       client_id: API_KEY,
       client_secret: API_SECRET,
       code,
     });
-    const accessToken = tokenRes.data.access_token;
-    tokens.set(shop, accessToken);
+    tokens.set(shop, tokenRes.data.access_token);
+    console.log(`✅ Token stored for ${shop}`);
 
-    await registerPrivacyWebhooks(shop, accessToken);
+    // Register privacy webhooks
+    await registerPrivacyWebhooks(shop, tokenRes.data.access_token);
 
-    if (host) {
-      return res.redirect(`https://${shop}/admin/apps/${API_KEY}?host=${encodeURIComponent(host)}`);
+    // Redirect back into Shopify admin if embedded
+    if (host && host.includes('admin.shopify.com')) {
+      const redirectUrl = `https://${host}/apps/${API_KEY}?shop=${encodeURIComponent(shop)}&host=${encodeURIComponent(host)}`;
+      return res.redirect(redirectUrl);
     }
-
+    // Otherwise to your own UI
     res.redirect(`${HOST}${APP_UI_PATH}?shop=${encodeURIComponent(shop)}`);
   } catch (err) {
     console.error('❌ OAuth callback error:', err.response?.data || err.message);
@@ -143,28 +162,48 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
-// Dashboard route
+// Dashboard
 app.get('/app', (req, res) => {
   const { shop } = req.query;
+  if (!shop) return res.status(400).send('❌ Missing "shop" parameter');
   res.render('app', { shop });
 });
 
-// GDPR Webhook registration
+// Webhook handlers (examples)
+app.post('/webhooks/orders/create', (req, res) => {
+  const payload = JSON.parse(req.body.toString('utf8'));
+  console.log('📦 Order Created:', payload);
+  res.status(200).send('OK');
+});
+app.post('/webhooks/customers/data_request', (req, res) => {
+  console.log('🔐 customers/data_request:', JSON.parse(req.body.toString()));
+  res.status(200).send('OK');
+});
+app.post('/webhooks/customers/redact', (req, res) => {
+  console.log('🧹 customers/redact:', JSON.parse(req.body.toString()));
+  res.status(200).send('OK');
+});
+app.post('/webhooks/shop/redact', (req, res) => {
+  console.log('🏪 shop/redact:', JSON.parse(req.body.toString()));
+  res.status(200).send('OK');
+});
+
+// Register GDPR webhooks
 async function registerPrivacyWebhooks(shop, accessToken) {
   const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
   const topics = [
     { topic: 'CUSTOMERS_DATA_REQUEST', path: '/webhooks/customers/data_request' },
-    { topic: 'CUSTOMERS_REDACT', path: '/webhooks/customers/redact' },
-    { topic: 'SHOP_REDACT', path: '/webhooks/shop/redact' },
+    { topic: 'CUSTOMERS_REDACT',      path: '/webhooks/customers/redact' },
+    { topic: 'SHOP_REDACT',           path: '/webhooks/shop/redact' },
   ];
 
-  for (const { topic, path: cbPath } of topics) {
+  for (const { topic, path } of topics) {
     const mutation = `
       mutation {
         webhookSubscriptionCreate(
           topic: ${topic}
           webhookSubscription: {
-            callbackUrl: "${HOST}${cbPath}",
+            callbackUrl: "${HOST}${path}",
             format: JSON
           }
         ) {
@@ -174,28 +213,28 @@ async function registerPrivacyWebhooks(shop, accessToken) {
       }
     `;
     try {
-      const resp = await axios.post(url, { query: mutation }, {
+      const response = await axios.post(url, { query: mutation }, {
         headers: {
           'X-Shopify-Access-Token': accessToken,
           'Content-Type': 'application/json',
         },
       });
-      const errs = resp.data?.data?.webhookSubscriptionCreate?.userErrors;
-      if (errs?.length) console.error(`❌ ${topic} errors:`, errs);
+      const errors = response.data?.data?.webhookSubscriptionCreate?.userErrors;
+      if (errors?.length) console.error(`❌ ${topic} errors:`, errors);
       else console.log(`✅ Registered webhook: ${topic}`);
-    } catch (e) {
-      console.error(`❌ Failed to register ${topic}:`, e.response?.data || e.message);
+    } catch (err) {
+      console.error(`❌ Webhook registration failed for ${topic}:`, err.response?.data || err.message);
     }
   }
 }
 
-// Helper
 function getToken(shop) {
   const token = tokens.get(shop);
   if (!token) throw new Error('Missing token for shop');
   return token;
 }
 
+// GraphQL endpoints
 app.get('/orders', async (req, res) => {
   try {
     const { shop } = req.query;
@@ -292,11 +331,14 @@ app.get('/customers', async (req, res) => {
     res.status(500).send('Error fetching customers');
   }
 });
-// Catch-all redirect to root
-app.use((req, res) => res.redirect('/'));
+app.use((req, res) => {
+  res.redirect('/');
+});
+
+
+// Serve static files from `public/`
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Shopify appp running on ${HOST}:${PORT}`);
-}); 
+  console.log(`🚀 Shopify app running on ${HOST}:${PORT}`);
+});
