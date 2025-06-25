@@ -42,7 +42,7 @@ app.use((req, res, next) => {
   const shop = req.query.shop;
   const token = shop && tokens.get(shop);
   if (!shop || !token) {
-    return res.redirect(/connect?shop=${encodeURIComponent(shop || '')});
+    return res.redirect(`/connect?shop=${encodeURIComponent(shop || '')}`);
   }
   next();
 });
@@ -79,20 +79,25 @@ function verifyOAuthCallback(req) {
 
 // Root: install entrypoint
 app.get('/', (req, res) => {
-  const {hmac, timestamp } = req.query;
-const shop="https://fetchdata.myshopify.com";
+  const { shop, hmac, timestamp } = req.query;
+
   if (shop && hmac && timestamp) {
-    // Validate install HMAC
     const params = { shop, timestamp };
     const message = querystring.stringify(params);
     const digest = crypto.createHmac('sha256', API_SECRET).update(message).digest('hex');
+
     if (!crypto.timingSafeEqual(Buffer.from(digest, 'hex'), Buffer.from(hmac, 'hex'))) {
       return res.status(400).send('❌ Invalid HMAC on install request');
     }
 
-    // Always redirect into embedded admin grant screen
+    // ✅ Always redirect to embedded grant screen
     return res.redirect(`https://admin.shopify.com/store/${shop.replace('.myshopify.com', '')}/app/grant`);
   }
+
+  // Default fallback
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 
   // Fallback landing page
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
