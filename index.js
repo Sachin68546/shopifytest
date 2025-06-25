@@ -29,16 +29,15 @@ const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// In-memory stores
-const tokens = new Map();         // shop -> access token
-const stateMap = new Map();       // state -> shop
+// In-memory token storage
+const tokens = new Map();
+const stateMap = new Map();
 
-// 1) Guard middleware: ensure OAuth completed before showing any UI or API routes
+// Middleware
 app.use((req, res, next) => {
   const publicPaths = ['/', '/connect', '/auth/callback', '/webhooks'];
-  if (publicPaths.some(p => req.path.startsWith(p))) {
-    return next();
-  }
+  if (publicPaths.some(p => req.path.startsWith(p))) return next();
+
   const shop = req.query.shop;
   const token = shop && tokens.get(shop);
   if (!shop || !token) {
@@ -47,10 +46,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// 2) Raw body parser + HMAC check for webhooks
 app.use('/webhooks', bodyParser.raw({ type: '*/*' }));
 app.use('/webhooks', (req, res, next) => {
-  if (req.method !== 'POST') return res.status(401).send('Unauthorized');
   const hmac = req.get('X-Shopify-Hmac-Sha256') || '';
   const digest = crypto.createHmac('sha256', API_SECRET).update(req.body, 'utf8').digest('base64');
   if (!crypto.timingSafeEqual(Buffer.from(digest, 'base64'), Buffer.from(hmac, 'base64'))) {
@@ -59,25 +56,22 @@ app.use('/webhooks', (req, res, next) => {
   next();
 });
 
-// 3) JSON parser
 app.use(bodyParser.json());
-
-// 4) Static assets & view engine (served only after OAuth guard)
 app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// Helper: verify OAuth callback HMAC
+// HMAC verifier
 function verifyOAuthCallback(req) {
   const providedHmac = req.query.hmac;
   if (typeof providedHmac !== 'string') return false;
   const { hmac, signature, ...rest } = req.query;
-  const message = Object.keys(rest).sort().map(k => ${k}=${rest[k]}).join('&');
+  const message = Object.keys(rest).sort().map(k => `${k}=${rest[k]}`).join('&');
   const generated = crypto.createHmac('sha256', API_SECRET).update(message).digest('hex');
   return crypto.timingSafeEqual(Buffer.from(generated, 'hex'), Buffer.from(providedHmac, 'hex'));
 }
 
-// Root: install entrypoint
+// Root route for installation
 app.get('/', (req, res) => {
   const { shop, hmac, timestamp } = req.query;
 
@@ -85,40 +79,31 @@ app.get('/', (req, res) => {
     const params = { shop, timestamp };
     const message = querystring.stringify(params);
     const digest = crypto.createHmac('sha256', API_SECRET).update(message).digest('hex');
-
     if (!crypto.timingSafeEqual(Buffer.from(digest, 'hex'), Buffer.from(hmac, 'hex'))) {
       return res.status(400).send('❌ Invalid HMAC on install request');
     }
 
-    // ✅ Always redirect to embedded grant screen
+    // Redirect to embedded app admin
     return res.redirect(`https://admin.shopify.com/store/${shop.replace('.myshopify.com', '')}/app/grant`);
   }
 
-  // Default fallback
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-
-  // Fallback landing page
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-
-// OAuth start
+// Start OAuth flow
 app.get('/connect', (req, res) => {
   const { shop } = req.query;
-  if (!shop || typeof shop !== 'string') {
-    return res.status(400).send('❌ Missing "shop" query parameter');
-  }
+  if (!shop) return res.status(400).send('❌ Missing shop');
+
   const state = uuidv4();
   stateMap.set(state, shop);
 
-  const installUrl = https://${shop}/admin/oauth/authorize +
-    ?client_id=${API_KEY} +
-    &scope=${encodeURIComponent(SCOPES)} +
-    &redirect_uri=${encodeURIComponent(${HOST}/auth/callback)} +
-    &state=${state} +
-    &grant_options[]=offline;
+  const installUrl = `https://${shop}/admin/oauth/authorize` +
+    `?client_id=${API_KEY}` +
+    `&scope=${encodeURIComponent(SCOPES)}` +
+    `&redirect_uri=${encodeURIComponent(`${HOST}/auth/callback`)}` +
+    `&state=${state}` +
+    `&grant_options[]=offline`;
 
   res.redirect(installUrl);
 });
@@ -127,19 +112,13 @@ app.get('/connect', (req, res) => {
 app.get('/auth/callback', async (req, res) => {
   try {
     const { code, shop, state, host, hmac } = req.query;
-    if (!code || !shop || !state || !hmac) {
-      return res.status(400).send('❌ Missing required OAuth query parameters');
-    }
-    if (stateMap.get(state) !== shop) {
-      return res.status(400).send('❌ State mismatch');
-    }
+    if (!code || !shop || !state || !hmac) return res.status(400).send('❌ Missing OAuth parameters');
+    if (stateMap.get(state) !== shop) return res.status(400).send('❌ State mismatch');
     stateMap.delete(state);
-    if (!verifyOAuthCallback(req)) {
-      return res.status(400).send('❌ Invalid HMAC on OAuth callback');
-    }
 
-    // Exchange code for token
-    const tokenRes = await axios.post(https://${shop}/admin/oauth/access_token, {
+    if (!verifyOAuthCallback(req)) return res.status(400).send('❌ Invalid HMAC');
+
+    const tokenRes = await axios.post(`https://${shop}/admin/oauth/access_token`, {
       client_id: API_KEY,
       client_secret: API_SECRET,
       code,
@@ -147,60 +126,36 @@ app.get('/auth/callback', async (req, res) => {
     const accessToken = tokenRes.data.access_token;
     tokens.set(shop, accessToken);
 
-    // Register GDPR webhooks
     await registerPrivacyWebhooks(shop, accessToken);
 
-    // Redirect into Admin if embedded
     if (host) {
-      return res.redirect(
-        https://${shop}/admin/apps/${API_KEY}?host=${encodeURIComponent(host)}
-      );
+      return res.redirect(`https://${shop}/admin/apps/${API_KEY}?host=${encodeURIComponent(host)}`);
     }
 
-    // Otherwise to your own UI
-    res.redirect(${HOST}${APP_UI_PATH}?shop=${encodeURIComponent(shop)});
+    res.redirect(`${HOST}${APP_UI_PATH}?shop=${encodeURIComponent(shop)}`);
   } catch (err) {
     console.error('❌ OAuth callback error:', err.response?.data || err.message);
     res.status(500).send('Authentication failed');
   }
 });
 
-// Dashboard (only after OAuth guard)
+// Dashboard route
 app.get('/app', (req, res) => {
   const { shop } = req.query;
   res.render('app', { shop });
 });
 
-// Webhook handlers
-app.post('/webhooks/orders/create', (req, res) => {
-  const payload = JSON.parse(req.body.toString('utf8'));
-  console.log('📦 Order Created:', payload);
-  res.status(200).send('OK');
-});
-app.post('/webhooks/customers/data_request', (req, res) => {
-  console.log('🔐 customers/data_request:', JSON.parse(req.body.toString()));
-  res.status(200).send('OK');
-});
-app.post('/webhooks/customers/redact', (req, res) => {
-  console.log('🧹 customers/redact:', JSON.parse(req.body.toString()));
-  res.status(200).send('OK');
-});
-app.post('/webhooks/shop/redact', (req, res) => {
-  console.log('🏪 shop/redact:', JSON.parse(req.body.toString()));
-  res.status(200).send('OK');
-});
-
-// Register GDPR webhooks via GraphQL
+// GDPR Webhook registration
 async function registerPrivacyWebhooks(shop, accessToken) {
-  const url = https://${shop}/admin/api/${API_VERSION}/graphql.json;
+  const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
   const topics = [
     { topic: 'CUSTOMERS_DATA_REQUEST', path: '/webhooks/customers/data_request' },
-    { topic: 'CUSTOMERS_REDACT',      path: '/webhooks/customers/redact' },
-    { topic: 'SHOP_REDACT',           path: '/webhooks/shop/redact' },
+    { topic: 'CUSTOMERS_REDACT', path: '/webhooks/customers/redact' },
+    { topic: 'SHOP_REDACT', path: '/webhooks/shop/redact' },
   ];
 
   for (const { topic, path: cbPath } of topics) {
-    const mutation = 
+    const mutation = `
       mutation {
         webhookSubscriptionCreate(
           topic: ${topic}
@@ -213,7 +168,7 @@ async function registerPrivacyWebhooks(shop, accessToken) {
           userErrors { field message }
         }
       }
-    ;
+    `;
     try {
       const resp = await axios.post(url, { query: mutation }, {
         headers: {
@@ -222,15 +177,15 @@ async function registerPrivacyWebhooks(shop, accessToken) {
         },
       });
       const errs = resp.data?.data?.webhookSubscriptionCreate?.userErrors;
-      if (errs?.length) console.error(❌ ${topic} errors:, errs);
-      else console.log(✅ Registered webhook: ${topic});
+      if (errs?.length) console.error(`❌ ${topic} errors:`, errs);
+      else console.log(`✅ Registered webhook: ${topic}`);
     } catch (e) {
-      console.error(❌ Webhook registration failed for ${topic}:, e.response?.data || e.message);
+      console.error(`❌ Failed to register ${topic}:`, e.response?.data || e.message);
     }
   }
 }
 
-// Helper to get token
+// Helper
 function getToken(shop) {
   const token = tokens.get(shop);
   if (!token) throw new Error('Missing token for shop');
