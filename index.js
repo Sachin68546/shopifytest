@@ -89,10 +89,10 @@ app.get('/', (req, res) => {
       return res.status(400).send('❌ Invalid HMAC on install request');
     }
     // For embedded app installs, redirect into Shopify admin grant
-    if (host && typeof host === 'string') {
-      const decodedHost = Buffer.from(host, 'base64').toString('utf8');
-      return res.redirect(`https://${decodedHost}/app/grant`);
-    }
+ if (host && typeof host === 'string') {
+  return res.redirect(`https://admin.shopify.com/store/${shop.replace('.myshopify.com', '')}/app/grant`);
+}
+
     // Otherwise start OAuth flow
     return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
   }
