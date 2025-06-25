@@ -57,7 +57,6 @@ app.use('/webhooks', (req, res, next) => {
 });
 
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
@@ -295,6 +294,7 @@ app.get('/customers', async (req, res) => {
 });
 // Catch-all redirect to root
 app.use((req, res) => res.redirect('/'));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // Start server
 app.listen(PORT, () => {
