@@ -75,23 +75,96 @@ app.get('/', (req, res) => {
 
     return res.send(`
 
-      <html>
+     <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Install Shopify App</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(to right, #4facfe, #00f2fe);
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-        <body>
+    .container {
+      background: #fff;
+      padding: 2rem 3rem;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      text-align: center;
+      max-width: 400px;
+      width: 100%;
+    }
 
-          <form method="get" action="/connect">
+    h2 {
+      margin-bottom: 1rem;
+      color: #333;
+    }
 
-            <label for="shop">Enter your shop domain:</label>
+    label {
+      font-size: 1rem;
+      display: block;
+      margin-bottom: 0.5rem;
+      color: #555;
+    }
 
-            <input type="text" id="shop" name="shop" placeholder="example.myshopify.com" />
+    input[type="text"] {
+      width: 100%;
+      padding: 0.7rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
 
-            <button type="submit">Install App</button>
+    input[type="text"]::placeholder {
+      color: #999;
+    }
 
-          </form>
+    button {
+      padding: 0.75rem 1.5rem;
+      background-color: #0077cc;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
 
-        </body>
+    button:hover {
+      background-color: #005fa3;
+    }
 
-      </html>
+    @media (max-width: 480px) {
+      .container {
+        padding: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Install Profit First</h2>
+    <form method="get" action="/connect">
+      <label for="shop">Enter your shop domain:</label>
+      <input type="text" id="shop" name="shop" placeholder="example.myshopify.com" required />
+      <button type="submit">Install App</button>
+    </form>
+  </div>
+
+</body>
+</html>
+
 
     `);
 
