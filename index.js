@@ -192,30 +192,45 @@ function getToken(shop) {
   return token;
 }
 
-// Example GraphQL endpoints (after OAuth guard)
 app.get('/orders', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
     const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
-    const query = ...;
+    const query = `
+      {
+        orders(first: 50) {
+          edges {
+            node {
+              id
+              name
+              createdAt
+              totalPriceSet { shopMoney { amount currencyCode } }
+              customer { firstName lastName email }
+            }
+          }
+        }
+      }
+    `;
     const { data } = await axios.post(url, { query }, {
-      headers: { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' },
+      headers: {
+        'X-Shopify-Access-Token': token,
+        'Content-Type': 'application/json',
+      },
     });
     res.json(data.data.orders.edges.map(e => e.node));
   } catch (err) {
-    console.error(err);
+    console.error('❌ /orders error:', err.response?.data || err.message);
     res.status(500).send('Error fetching orders');
   }
 });
-
 
 app.get('/products', async (req, res) => {
   try {
     const { shop } = req.query;
     const token = getToken(shop);
     const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
-    const query = 
+    const query = `
       {
         products(first: 50) {
           edges {
@@ -227,7 +242,7 @@ app.get('/products', async (req, res) => {
           }
         }
       }
-    ;
+    `;
     const { data } = await axios.post(url, { query }, {
       headers: {
         'X-Shopify-Access-Token': token,
@@ -246,7 +261,7 @@ app.get('/customers', async (req, res) => {
     const { shop } = req.query;
     const token = getToken(shop);
     const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
-    const query = 
+    const query = `
       {
         customers(first: 50) {
           edges {
@@ -260,7 +275,7 @@ app.get('/customers', async (req, res) => {
           }
         }
       }
-    ;
+    `;
     const { data } = await axios.post(url, { query }, {
       headers: {
         'X-Shopify-Access-Token': token,
