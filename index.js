@@ -73,22 +73,27 @@ function verifyOAuthCallback(req) {
 
 // Root route for installation
 app.get('/', (req, res) => {
-  const { shop, hmac, timestamp } = req.query;
+  const { shop } = req.query;
 
-  if (shop && hmac && timestamp) {
-    const params = { shop, timestamp };
-    const message = querystring.stringify(params);
-    const digest = crypto.createHmac('sha256', API_SECRET).update(message).digest('hex');
-    if (!crypto.timingSafeEqual(Buffer.from(digest, 'hex'), Buffer.from(hmac, 'hex'))) {
-      return res.status(400).send('❌ Invalid HMAC on install request');
-    }
-
-    // Redirect to embedded app admin
-    return res.redirect(`https://admin.shopify.com/store/${shop.replace('.myshopify.com', '')}/app/grant`);
+  // If no shop, prompt for it
+  if (!shop) {
+    return res.send(`
+      <html>
+        <body>
+          <form method="get" action="/connect">
+            <label for="shop">Enter your shop domain:</label>
+            <input type="text" id="shop" name="shop" placeholder="example.myshopify.com" />
+            <button type="submit">Install App</button>
+          </form>
+        </body>
+      </html>
+    `);
   }
 
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  // Always redirect to connect (OAuth) if shop is present
+  return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
 });
+
 
 // Start OAuth flow
 app.get('/connect', (req, res) => {
