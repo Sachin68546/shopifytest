@@ -304,9 +304,13 @@ async function registerPrivacyWebhooks(shop, accessToken) {
 
 function getToken(shop) {
   const token = tokens.get(shop);
-  if (!token) throw new Error('Missing token for shop');
+  if (!token) {
+    console.warn(`⚠️ No token found for ${shop}`);
+    throw new Error('Missing token for shop');
+  }
   return token;
 }
+
 
 // GraphQL endpoints
 app.get('/orders', async (req, res) => {
@@ -314,6 +318,7 @@ app.get('/orders', async (req, res) => {
     const { shop } = req.query;
     const token = getToken(shop);
     const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+
     const query = `
       {
         orders(first: 50) {
@@ -322,25 +327,43 @@ app.get('/orders', async (req, res) => {
               id
               name
               createdAt
-              totalPriceSet { shopMoney { amount currencyCode } }
-              customer { firstName lastName email }
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
+                }
+              }
+              customer {
+                firstName
+                lastName
+                email
+              }
             }
           }
         }
       }
     `;
+
     const { data } = await axios.post(url, { query }, {
       headers: {
         'X-Shopify-Access-Token': token,
         'Content-Type': 'application/json',
       },
     });
+
+    // Shopify might return errors in the response body
+    if (data.errors) {
+      console.error('GraphQL Errors:', data.errors);
+      return res.status(500).send('GraphQL query error');
+    }
+
     res.json(data.data.orders.edges.map(e => e.node));
   } catch (err) {
     console.error('❌ /orders error:', err.response?.data || err.message);
     res.status(500).send('Error fetching orders');
   }
 });
+
 
 app.get('/products', async (req, res) => {
   try {
