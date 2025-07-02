@@ -63,8 +63,6 @@ function verifyOAuthCallback(req) {
   return crypto.timingSafeEqual(Buffer.from(generated, 'hex'), Buffer.from(providedHmac, 'hex'));
 }
 
-// Serve static files from `public/`
-app.use(express.static(path.join(__dirname, 'public')));
 
 
 app.get('/', (req, res) => {
@@ -421,6 +419,8 @@ app.get('/customers', async (req, res) => {
   }
 });
 
+// Serve static files from `public/`
+app.use(express.static(path.join(__dirname, 'public')));
 
 app.listen(PORT, () => {
   console.log(`🚀 Shopify app running on ${HOST}:${PORT}`);
