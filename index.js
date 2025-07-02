@@ -64,120 +64,22 @@ function verifyOAuthCallback(req) {
 }
 
 app.get('/', (req, res) => {
-
   const { shop } = req.query;
 
-
-
-  // If no shop, prompt for it
-
   if (!shop) {
-
     return res.send(`
-
-    <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Install Shopify App</title>
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(to right, #a8e063, #56ab2f); /* Green gradient */
-      height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .container {
-      background: #fff;
-      padding: 2rem 3rem;
-      border-radius: 12px;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-      text-align: center;
-      max-width: 400px;
-      width: 100%;
-    }
-
-    h2 {
-      margin-bottom: 1rem;
-      color: #2d572c;
-    }
-
-    label {
-      font-size: 1rem;
-      display: block;
-      margin-bottom: 0.5rem;
-      color: #3d3d3d;
-    }
-
-    input[type="text"] {
-      width: 100%;
-      padding: 0.7rem;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      margin-bottom: 1.5rem;
-      font-size: 1rem;
-      box-sizing: border-box;
-    }
-
-    input[type="text"]::placeholder {
-      color: #999;
-    }
-
-    button {
-      padding: 0.75rem 1.5rem;
-      background-color: #4caf50; /* Green */
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    button:hover {
-      background-color: #388e3c;
-    }
-
-    @media (max-width: 480px) {
-      .container {
-        padding: 1.5rem;
-      }
-    }
-  </style>
-</head>
-<body>
-
-  <div class="container">
-    <h2>Install Profit First</h2>
-    <form method="get" action="/connect">
-      <label for="shop">Enter your shop domain:</label>
-      <input type="text" id="shop" name="shop" placeholder="example.myshopify.com" required />
-      <button type="submit">Install App</button>
-    </form>
-  </div>
-
-</body>
-</html>
-
-
-
+      <html>
+        <head><title>profit first</title></head>
+        <body>
+          <h2>Welcome to Profit First App</h2>
+        </body>
+      </html>
     `);
-
   }
-
-
-
-  // Always redirect to connect (OAuth) if shop is present
-
+  // Redirect if shop is present (from App Store installation link)
   return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
-
 });
+
 
 // OAuth start
 app.get('/connect', (req, res) => {
