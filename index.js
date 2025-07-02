@@ -216,124 +216,206 @@ function getToken(shop) {
 
 // GraphQL endpoints
 app.get('/orders', async (req, res) => {
-  try {
-    const { shop } = req.query;
-    const token = getToken(shop);
-    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+  const { shop } = req.query;
+  const token = getToken(shop);
+  const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
 
-    const query = `
-      {
-        orders(first: 50) {
-          edges {
-            node {
-              id
-              name
-              createdAt
-              totalPriceSet {
-                shopMoney {
-                  amount
-                  currencyCode
-                }
+  let hasNextPage = true;
+  let endCursor = null;
+  let allOrders = [];
+
+  const query = (cursor) => `
+    {
+      orders(first: 100${cursor ? `, after: "${cursor}"` : ''}) {
+        pageInfo {
+          hasNextPage
+        }
+        edges {
+          cursor
+          node {
+            id
+            name
+            createdAt
+            totalPriceSet {
+              shopMoney {
+                amount
+                currencyCode
               }
-              customer {
-                firstName
-                lastName
-                email
-              }
+            }
+            customer {
+              firstName
+              lastName
+              email
             }
           }
         }
       }
-    `;
+    }
+  `;
 
-    const { data } = await axios.post(url, { query }, {
-      headers: {
-        'X-Shopify-Access-Token': token,
-        'Content-Type': 'application/json',
-      },
-    });
+  try {
+    while (hasNextPage) {
+      const { data } = await axios.post(url, { query: query(endCursor) }, {
+        headers: {
+          'X-Shopify-Access-Token': token,
+          'Content-Type': 'application/json',
+        },
+      });
 
-    // Shopify might return errors in the response body
-    if (data.errors) {
-      console.error('GraphQL Errors:', data.errors);
-      return res.status(500).send('GraphQL query error');
+      const ordersData = data.data.orders;
+      const edges = ordersData.edges;
+      hasNextPage = ordersData.pageInfo.hasNextPage;
+
+      if (edges.length > 0) {
+        endCursor = edges[edges.length - 1].cursor;
+        allOrders.push(...edges.map(e => e.node));
+      } else {
+        break;
+      }
     }
 
-    res.json(data.data.orders.edges.map(e => e.node));
+    // Calculate totals
+    const totalSales = allOrders.reduce((sum, order) => {
+      return sum + parseFloat(order.totalPriceSet.shopMoney.amount);
+    }, 0);
+
+    res.json({
+      totalOrders: allOrders.length,
+      totalSales: totalSales.toFixed(2),
+      currency: allOrders[0]?.totalPriceSet.shopMoney.currencyCode || 'USD',
+      orders: allOrders,
+    });
   } catch (err) {
     console.error('❌ /orders error:', err.response?.data || err.message);
-    res.status(500).send('Error fetching orders');
+    res.status(500).send('Error fetching all orders');
   }
 });
 
 
+
 app.get('/products', async (req, res) => {
-  try {
-    const { shop } = req.query;
-    const token = getToken(shop);
-    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
-    const query = `
-      {
-        products(first: 50) {
-          edges {
-            node {
-              id
-              title
-              totalInventory
-            }
+  const { shop } = req.query;
+  const token = getToken(shop);
+  const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+
+  let hasNextPage = true;
+  let endCursor = null;
+  let allProducts = [];
+
+  const query = (cursor) => `
+    {
+      products(first: 100${cursor ? `, after: "${cursor}"` : ''}) {
+        pageInfo {
+          hasNextPage
+        }
+        edges {
+          cursor
+          node {
+            id
+            title
+            totalInventory
+            createdAt
+            status
           }
         }
       }
-    `;
-    const { data } = await axios.post(url, { query }, {
-      headers: {
-        'X-Shopify-Access-Token': token,
-        'Content-Type': 'application/json',
-      },
+    }
+  `;
+
+  try {
+    while (hasNextPage) {
+      const { data } = await axios.post(url, { query: query(endCursor) }, {
+        headers: {
+          'X-Shopify-Access-Token': token,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const productData = data.data.products;
+      const edges = productData.edges;
+      hasNextPage = productData.pageInfo.hasNextPage;
+
+      if (edges.length > 0) {
+        endCursor = edges[edges.length - 1].cursor;
+        allProducts.push(...edges.map(e => e.node));
+      } else {
+        break;
+      }
+    }
+
+    const totalInventory = allProducts.reduce((sum, p) => sum + (p.totalInventory || 0), 0);
+
+    res.json({
+      totalProducts: allProducts.length,
+      totalInventory,
+      products: allProducts,
     });
-    res.json(data.data.products.edges.map(e => e.node));
   } catch (err) {
     console.error('❌ /products error:', err.response?.data || err.message);
     res.status(500).send('Error fetching products');
   }
 });
 
+
 app.get('/customers', async (req, res) => {
-  try {
-    const { shop } = req.query;
-    const token = getToken(shop);
-    const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
-    const query = `
-      {
-        customers(first: 50) {
-          edges {
-            node {
-              id
-              displayName
-              email
-              createdAt
-              state
-            }
+  const { shop } = req.query;
+  const token = getToken(shop);
+  const url = `https://${shop}/admin/api/${API_VERSION}/graphql.json`;
+
+  let hasNextPage = true;
+  let endCursor = null;
+  let allCustomers = [];
+
+  const query = (cursor) => `
+    {
+      customers(first: 100${cursor ? `, after: "${cursor}"` : ''}) {
+        pageInfo {
+          hasNextPage
+        }
+        edges {
+          cursor
+          node {
+            id
+            displayName
+            email
+            createdAt
+            state
           }
         }
       }
-    `;
-    const { data } = await axios.post(url, { query }, {
-      headers: {
-        'X-Shopify-Access-Token': token,
-        'Content-Type': 'application/json',
-      },
+    }
+  `;
+
+  try {
+    while (hasNextPage) {
+      const { data } = await axios.post(url, { query: query(endCursor) }, {
+        headers: {
+          'X-Shopify-Access-Token': token,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const customerData = data.data.customers;
+      const edges = customerData.edges;
+      hasNextPage = customerData.pageInfo.hasNextPage;
+
+      if (edges.length > 0) {
+        endCursor = edges[edges.length - 1].cursor;
+        allCustomers.push(...edges.map(e => e.node));
+      } else {
+        break;
+      }
+    }
+
+    res.json({
+      totalCustomers: allCustomers.length,
+      customers: allCustomers,
     });
-    res.json(data.data.customers.edges.map(e => e.node));
   } catch (err) {
     console.error('❌ /customers error:', err.response?.data || err.message);
     res.status(500).send('Error fetching customers');
   }
 });
-app.use((req, res) => {
-  res.redirect('/');
-});
-
 
 // Serve static files from `public/`
 app.use(express.static(path.join(__dirname, 'public')));
