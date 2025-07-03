@@ -21,9 +21,8 @@ const {
   HOST,
   PORT = 3000,
   APP_UI_PATH = '/app',
-  MONGODB_URI, // ← NEW
 } = process.env;
-
+const MONGODB_URI="mongodb+srv://asalimunaafa:2JXVYLlkLFsKu5M5@cluster0.ufhmr.mongodb.net/shopifytest?retryWrites=true&w=majority&appName=Cluster0";
 if (!API_KEY || !API_SECRET || !SCOPES || !HOST || !MONGODB_URI) {
   console.error('❌ Missing required environment variables');
   process.exit(1);
@@ -32,7 +31,7 @@ if (!API_KEY || !API_SECRET || !SCOPES || !HOST || !MONGODB_URI) {
 /*****************************************************************
  * DATABASE SET‑UP (MongoDB via Mongoose)
  *****************************************************************/
-await mongoose.connect(MONGODB_URI, { useNewUrlParser: true, useUnifiedTopology: true });
+await mongoose.connect(MONGODB_URI);
 console.log('✅ Connected to MongoDB');
 
 const tokenSchema = new mongoose.Schema({
