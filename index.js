@@ -230,7 +230,7 @@ app.get('/orders', async (req, res) => {
     }
 
     const totalSales = all.reduce((s, o) => s + parseFloat(o.totalPriceSet.shopMoney.amount), 0);
-    res.json({ totalOrders: all.length, totalSales: totalSales.toFixed(2), currency: all[0]?.totalPriceSet.shopMoney.currencyCode || 'USD', orders: all });
+res.json(all);   // just the array
   } catch (err) {
     console.error('❌ /orders error:', err.response?.data || err.message);
     res.status(500).send('Error fetching orders');
@@ -265,7 +265,7 @@ app.get('/products', async (req, res) => {
       }
     }
     const totalInventory = all.reduce((s, p) => s + (p.totalInventory || 0), 0);
-    res.json({ totalProducts: all.length, totalInventory, products: all });
+res.json(all);   // just the array
   } catch (err) {
     console.error('❌ /products error:', err.response?.data || err.message);
     res.status(500).send('Error fetching products');
@@ -299,7 +299,7 @@ app.get('/customers', async (req, res) => {
         all.push(...customers.edges.map((e) => e.node));
       }
     }
-    res.json({ totalCustomers: all.length, customers: all });
+res.json(all);   // just the array
   } catch (err) {
     console.error('❌ /customers error:', err.response?.data || err.message);
     res.status(500).send('Error fetching customers');
