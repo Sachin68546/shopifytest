@@ -419,8 +419,16 @@ app.get('/customers', async (req, res) => {
   }
 });
 
-// Serve static files from `public/`
+app.get('/privacy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy.html'));
+});
+
+
 app.use(express.static(path.join(__dirname, 'public')));
+
+
+
+
 
 app.listen(PORT, () => {
   console.log(`🚀 Shopify app running on ${HOST}:${PORT}`);
