@@ -340,7 +340,7 @@
           tb.appendChild(tr);
         });
       }
-      fillTable('orders', orders.map(o=>({ Order:'#'+o.name, Date:new Date(o.createdAt).toLocaleDateString(), Total:'$'+parseFloat(o.totalPriceSet.shopMoney.amount).toFixed(2) })), ['Order','Date','Total']);
+      fillTable('orders', orders.map(o=>({ Order:'#'+o.name, Date:new Date(o.createdAt).toLocaleDateString(), Total:'₹'+parseFloat(o.totalPriceSet.shopMoney.amount).toFixed(2) })), ['Order','Date','Total']);
       fillTable('products', products.map(p=>({ Title:p.title, Inventory:p.totalInventory })), ['Title','Inventory']);
       fillTable('customers', customers.map(c=>({ Name:c.displayName, Email:c.email })), ['Name','Email']);
 
