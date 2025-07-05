@@ -185,6 +185,30 @@ app.get('/auth/callback', async (req, res) => {
   }
 });
 
+app.get('/token', async (req, res) => {
+  const { shop, password } = req.query;
+
+  // Check if shop or password is missing
+  if (!shop || !password) {
+    return res.status(400).json({ error: '❌ Missing "shop" or "password" query parameter' });
+  }
+
+  // Check if password is incorrect
+  if (password !== "Sachin369") {
+    return res.status(403).json({ error: '❌ Invalid password' });
+  }
+
+  try {
+    const token = await getToken(shop);
+    res.json({ accessToken: token });
+  } catch (err) {
+    console.error(`❌ Error fetching token for ${shop}:`, err.message);
+    res.status(404).json({ error: `Token not found for shop: ${shop}` });
+  }
+});
+
+
+
 /*****************************************************************
  * ROUTES – EMBEDDED APP DASHBOARD
  *****************************************************************/
