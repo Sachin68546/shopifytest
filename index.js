@@ -118,9 +118,9 @@ app.use('/webhooks', (req, res, next) => {
  * ROUTES – PUBLIC LANDING / INSTALL FLOW
  *****************************************************************/
 app.get('/', (req, res) => {
-    res.redirect('https://www.profitfirstanalytics.co.in/');
   const { shop } = req.query;
   if (!shop) {
+    res.redirect('https://www.profitfirstanalytics.co.in/');
     return res.send(`<!doctype html><html><head><title>Profit First</title></head><body><h2>Welcome to Profit First App</h2></body></html>`);
   }
   return res.redirect(`/connect?shop=${encodeURIComponent(shop)}`);
